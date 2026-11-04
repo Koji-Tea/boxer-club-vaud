@@ -247,5 +247,8 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--fauve);outline-o
 .card.adh{padding:0}
 .adh-main{display:flex;width:100%;padding:14px 16px;background:none;border:0;text-align:left;cursor:pointer;font:inherit;color:inherit;border-radius:var(--r)}
 .adh-main:hover{background:var(--surface-2)}
-.cotis-chk{padding:10px 16px;border-top:1px solid var(--line);font-size:.92rem}
+.adh-foot{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;padding:10px 16px;border-top:1px solid var(--line);font-size:.92rem}
+.role-lab{display:flex;align-items:center;gap:8px;font-weight:700}
+.role-sel{width:auto;padding:6px 10px}
+.badge.r-educ{background:var(--fauve);color:#1A1410}
 .badge.r-president,.badge.r-caissier{background:var(--ink);color:var(--bg)}

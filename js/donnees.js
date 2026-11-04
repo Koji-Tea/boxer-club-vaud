@@ -6,14 +6,15 @@ const ROLES={
   president:{l:"Président·e",d:"Comme le comité, et coche les cotisations payées. Nommé·e par un·e administrateur·rice."},
   caissier:{l:"Caissier·ère",d:"Comme le comité, et coche les cotisations payées. Nommé·e par un·e administrateur·rice."},
   comite:{l:"Comité",d:"Gère le contenu du club, les comptes et les rôles (sauf administrateur)."},
+  educ:{l:"Responsable éducation",d:"Crée, modifie et annule tous les cours, gère les fiches moniteurs et répond aux questions du wiki."},
   moniteur:{l:"Moniteur·rice",d:"Gère l’agenda des cours, les fiches moniteurs et le wiki."},
   eleveur:{l:"Éleveur·euse",d:"Membre qui publie et met à jour ses annonces de portées."},
   membre:{l:"Membre",d:"Membre du club : ajoute des cours à l’agenda (et modifie les siens), tchat, liste des adhérents."},
   adherent:{l:"Adhérent·e",d:"Participe aux cours : inscriptions, tchat, liste des adhérents."},
   attente:{l:"En attente",d:"Compte créé, en attente de validation par le comité."},
 };
-const MEMBERS=["admin","president","caissier","comite","moniteur","eleveur","membre","adherent"];
-const STAFF=["admin","president","caissier","comite","moniteur"];
+const MEMBERS=["admin","president","caissier","comite","educ","moniteur","eleveur","membre","adherent"];
+const STAFF=["admin","president","caissier","comite","educ","moniteur"];
 const BOARD=["admin","president","caissier","comite"];
 const BREEDERS=["admin","president","caissier","comite","eleveur"];
 // Cotisations : visibles et modifiables seulement par l'admin, le/la président·e et le/la caissier·ère.

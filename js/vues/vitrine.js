@@ -95,6 +95,7 @@ VIEWS.club={t:"Comité & adhérents",r(){
   $$("[data-com]",m).forEach(b=>b.onclick=()=>ed(get("comite",b.dataset.com)));
   const q=$("#adhQ",m);if(q)q.oninput=()=>{const t=norm(q.value);$$(".adh",m).forEach(x=>x.hidden=t&&!norm(x.dataset.s).includes(t))};
   $$("[data-user]",m).forEach(b=>b.onclick=()=>userSheet(get("users",b.dataset.user)));
+  bindRoleSelects(m);
   $$("[data-cotis]",m).forEach(c=>c.onchange=()=>{setCotis(c.dataset.cotis,c.checked);toast(c.checked?"Cotisation notée comme réglée":"Cotisation notée comme non réglée")});
 }};
 function comiteHTML(){
@@ -103,6 +104,13 @@ function comiteHTML(){
     <div class="people">${all("comite").sort(byOrder).map(p=>`<div class="card person">${avatar(p.nom,p.photo,"lg")}<div class="grow"><b>${esc(p.nom)}</b><span class="role">${esc(p.role)}</span>
       <div class="small">${p.tel?telLink(p.tel)+"<br>":""}${mailLink(p.email)}</div></div>${canWrite("comite")?editBtn("data-com",p.id):""}</div>`).join("")}</div>`;
 }
+// Liste déroulante du rôle d'un compte (comité) : admin, président·e et caissier·ère ne sont donnés que par un·e admin.
+function roleSelect(u){
+  if(u.id===ME.uid&&!isAdmin())return`<span class="badge r-${esc(u.role)}">${esc(ROLES[u.role].l)}</span>`;
+  const opts=Object.keys(ROLES).filter(r=>!SENSITIVE.includes(r)||isAdmin()||u.role===r).map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLES[r].l}</option>`).join("");
+  return`<select class="role-sel" data-role-of="${esc(u.id)}" aria-label="Rôle de ${esc(u.pseudo)}"${SENSITIVE.includes(u.role)&&!isAdmin()?" disabled":""}>${opts}</select>`;
+}
+function bindRoleSelects(m){$$("[data-role-of]",m).forEach(s=>s.onchange=()=>{setRole(s.dataset.roleOf,s.value);toast("Rôle de "+((get("users",s.dataset.roleOf)||{}).pseudo||"")+" : "+ROLES[s.value].l)})}
 function adherentsHTML(){
   const lock=membersOnly("La liste des adhérents");if(lock)return lock;
   const list=all("users").filter(u=>MEMBERS.includes(u.role)).sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo));
@@ -113,7 +121,7 @@ function adherentsHTML(){
     <div class="list">${list.map(u=>`<div class="card adh" data-s="${esc([u.pseudo,u.prenom,u.chien].join(" "))}"><button class="adh-main row" data-user="${esc(u.id)}">
       ${avatar(u.pseudo,u.photo)}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?` <span class="muted">· ${esc(u.prenom)}</span>`:""}<br><span class="small">${u.chien?"🐾 "+esc(u.chien):""}</span></span>
       <span class="badge r-${esc(u.role)}">${esc(ROLES[u.role].l)}</span></button>
-      ${fin?`<label class="chk cotis-chk"><input type="checkbox" data-cotis="${esc(u.id)}"${cotisPayee(u.id)?" checked":""}> Cotisation ${an} réglée</label>`:""}</div>`).join("")}</div>`;
+      ${fin||isBoard()?`<div class="adh-foot">${isBoard()?`<label class="role-lab">Rôle ${roleSelect(u)}</label>`:""}${fin?`<label class="chk"><input type="checkbox" data-cotis="${esc(u.id)}"${cotisPayee(u.id)?" checked":""}> Cotisation ${an} réglée</label>`:""}</div>`:""}</div>`).join("")}</div>`;
 }
 // Fiche d'un·e adhérent·e et de ses chiens.
 function userSheet(u){

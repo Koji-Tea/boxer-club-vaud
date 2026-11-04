@@ -98,6 +98,16 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   ok(await A.isChecked(`[data-cotis="${dUid}"]`).catch(()=>false),'admin voit la cotisation cochée par la caissière');
   r=await B.evaluate(async u=>{try{await firebase.firestore().doc('users/'+u).update({role:'president'});return 'ok'}catch(e){return String(e.message).toLowerCase()}},dUid);
   ok(r.includes('permission'),'caissier·ère ne nomme pas de président·e');
+  // Rôle donné depuis la liste des adhérents ; Responsable éducation
+  await go(A,'#club/adherents');await A.waitForTimeout(800);
+  await A.selectOption(`.v-club [data-role-of="${dUid}"]`,'educ');await A.waitForTimeout(1500);
+  ok((await D.evaluate(()=>ME.role))==='educ','rôle donné depuis la liste des adhérents');
+  r=await D.evaluate(async()=>{try{const s=await firebase.firestore().collection('cours').where('titre','==','Cours de Bob modifié').get();await s.docs[0].ref.update({annule:true});return 'ok'}catch(e){return e.message}});
+  ok(r==='ok','responsable éducation annule le cours d’un autre');
+  r=await D.evaluate(async()=>{try{await firebase.firestore().collection('wiki').add({q:'Q ?',r:'R',cat:'Le boxer'});return 'ok'}catch(e){return e.message}});
+  ok(r==='ok','responsable éducation répond dans le wiki');
+  r=await D.evaluate(async()=>{try{await firebase.firestore().collection('comite').add({nom:'x',role:'y'});return 'ok'}catch(e){return String(e.message).toLowerCase()}});
+  ok(r.includes('permission'),'responsable éducation ne modifie pas le comité');
   // Connexion par pseudo
   await B.click('[href="#compte"]');await go(B,'#compte');await B.click('#out');await B.waitForTimeout(1000);
   await go(B,'#compte');await B.fill('#lId','bob');await B.fill('#lPass','secret123');await B.click('#logForm button.primary');await B.waitForTimeout(2000);

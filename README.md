@@ -29,6 +29,7 @@ Un nouveau compte est **en attente** : il voit toute la vitrine, mais pas le tch
 | Administrateur·rice | Tout, y compris nommer d’autres administrateurs |
 | Président·e / Caissier·ère | Comme le comité, et coche les cotisations réglées dans la liste des adhérents (seuls eux et l’admin voient ces cases). Nommé·es par un·e admin |
 | Comité | Valide les comptes, donne les rôles, modifie tout le contenu |
+| Responsable éducation | Crée, modifie et annule tous les cours, gère les fiches moniteurs et répond aux questions du wiki |
 | Moniteur·rice | Gère l’agenda des cours, les fiches moniteurs et le wiki |
 | Éleveur·euse | Publie et met à jour ses propres élevages et portées |
 | Membre | Ajoute des cours à l’agenda et modifie les siens, s’inscrit aux cours, tchat, liste des adhérents |

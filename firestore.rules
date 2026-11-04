@@ -10,8 +10,8 @@ service cloud.firestore {
     function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
     function setupPath() { return /databases/$(database)/documents/config/setup; }
     function role() { return signedIn() && exists(userPath(request.auth.uid)) ? get(userPath(request.auth.uid)).data.role : 'aucun'; }
-    function member() { return role() in ['admin', 'president', 'caissier', 'comite', 'moniteur', 'eleveur', 'membre', 'adherent']; }
-    function staff() { return role() in ['admin', 'president', 'caissier', 'comite', 'moniteur']; }
+    function member() { return role() in ['admin', 'president', 'caissier', 'comite', 'educ', 'moniteur', 'eleveur', 'membre', 'adherent']; }
+    function staff() { return role() in ['admin', 'president', 'caissier', 'comite', 'educ', 'moniteur']; }
     function board() { return role() in ['admin', 'president', 'caissier', 'comite']; }
     // Cotisations : admin, président·e et caissier·ère seulement. Ces trois rôles ne sont donnés que par un·e admin.
     function finance() { return role() in ['admin', 'president', 'caissier']; }
@@ -80,7 +80,7 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pseudo', 'pk', 'prenom', 'chiens', 'chien', 'photo'])
             && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['pk']) || pseudoOwned(uid)))
         || (board() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
-            && request.resource.data.role in ['admin', 'president', 'caissier', 'comite', 'moniteur', 'eleveur', 'membre', 'adherent', 'attente']
+            && request.resource.data.role in ['admin', 'president', 'caissier', 'comite', 'educ', 'moniteur', 'eleveur', 'membre', 'adherent', 'attente']
             && (isAdmin() || (!sensitive(resource.data.role) && !sensitive(request.resource.data.role))));
       allow delete: if board() && request.auth.uid != uid && (isAdmin() || !sensitive(resource.data.role));
     }
