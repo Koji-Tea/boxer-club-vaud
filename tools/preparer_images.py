@@ -20,16 +20,18 @@ A=agrandir(src.getchannel('A'),6)
 colorer(A,(0,0,0)).save(os.path.join(IMG,'logo-noir.png'),optimize=True)
 colorer(A,(255,255,255)).save(os.path.join(IMG,'logo-blanc.png'),optimize=True)
 
-# Icône de l'app : le logo complet (texte + tête du boxer), centré sur un carré blanc.
-# Marge de 14 % : le logo reste entier même quand Android découpe l'icône en rond (zone sûre « maskable »).
-LOGO=A
-def icone(taille,marge=0.14,fond=(255,255,255)):
-    l=colorer(LOGO,(0,0,0)); l=l.crop(l.getbbox())
-    k=taille*(1-2*marge)/max(l.size); l=l.resize((round(l.width*k),round(l.height*k)),Image.LANCZOS)
-    c=Image.new('RGBA',(taille,taille),fond+(255,)); c.alpha_composite(l,((taille-l.width)//2,(taille-l.height)//2)); return c
+# Icône de l'app (modèle fourni par le club : tools/logo-app-modele.png, 171 px) :
+# logo blanc sur fond orange, refait en haute définition à partir du logo agrandi.
+ORANGE=(186,97,9)
+def icone(taille,largeur=0.906):
+    l=colorer(A,(255,255,255)); l=l.crop(l.getbbox())
+    k=taille*largeur/l.width; l=l.resize((round(l.width*k),round(l.height*k)),Image.LANCZOS)
+    c=Image.new('RGBA',(taille,taille),ORANGE+(255,)); c.alpha_composite(l,((taille-l.width)//2,(taille-l.height)//2)); return c
 icone(512).save(os.path.join(ROOT,'icon-512.png'),optimize=True)
 icone(192).save(os.path.join(ROOT,'icon-192.png'),optimize=True)
-icone(180,0.08).convert('RGB').save(os.path.join(ROOT,'apple-touch-icon.png'),optimize=True)
-f=icone(64,0.04); f.save(os.path.join(IMG,'favicon.png'),optimize=True)
+# Version « maskable » : Android peut découper l'icône en rond, le logo est donc plus petit pour rester entier.
+icone(512,0.72).save(os.path.join(ROOT,'icon-maskable-512.png'),optimize=True)
+icone(180).convert('RGB').save(os.path.join(ROOT,'apple-touch-icon.png'),optimize=True)
+f=icone(64,0.94); f.save(os.path.join(IMG,'favicon.png'),optimize=True)
 f.save(os.path.join(ROOT,'favicon.ico'),sizes=[(16,16),(32,32),(48,48),(64,64)])
 print('ok')
