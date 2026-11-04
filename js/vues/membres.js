@@ -152,6 +152,7 @@ VIEWS.reglages={t:"Réglages",r(){
       <div class="f"><label for="cAnn">Annonce en haut de l’accueil (vide = aucune)</label><textarea id="cAnn" rows="2" placeholder="Ex. : pas de cours samedi 12, fête de la cabane !">${esc(CFG.annonce)}</textarea></div>
       <div class="f"><label for="cAcc">Présentation du club</label><textarea id="cAcc" rows="4">${esc(CFG.accueil)}</textarea></div>
       <div class="f"><label for="cPv">Première visite</label><textarea id="cPv" rows="2">${esc(CFG.premiereVisite)}</textarea></div>
+      <div class="f"><label for="cTel">Numéro du bouton « Contacter le club »</label><input id="cTel" type="tel" value="${esc(CFG.telClub||"")}"></div>
       <div class="f"><label for="cAx">Plan d’accès : bon à savoir</label><textarea id="cAx" rows="3">${esc(CFG.acces)}</textarea></div>
       <div class="f"><label for="cDet">Boxer en détresse</label><textarea id="cDet" rows="4">${esc(CFG.detresse)}</textarea></div>
       <div class="row end full"><button class="btn primary">Enregistrer les textes</button></div></form>
@@ -162,6 +163,6 @@ VIEWS.reglages={t:"Réglages",r(){
   $$("[data-see]",m).forEach(b=>b.onclick=()=>userSheet(get("users",b.dataset.see)));
   $$("[data-no]",m).forEach(b=>b.onclick=async()=>{const u=get("users",b.dataset.no);if(await confirmBox(`Retirer le compte de ${u.pseudo} ?`,"Retirer"))removeUser(u)});
   $$("[data-role-of]",m).forEach(s=>s.onchange=()=>{setRole(s.dataset.roleOf,s.value);toast("Rôle modifié")});
-  $("#cfgForm",m).onsubmit=e=>{e.preventDefault();putCfg({annonce:$("#cAnn",m).value.trim(),accueil:$("#cAcc",m).value.trim(),premiereVisite:$("#cPv",m).value.trim(),acces:$("#cAx",m).value.trim(),detresse:$("#cDet",m).value.trim()});toast("Textes enregistrés")};
+  $("#cfgForm",m).onsubmit=e=>{e.preventDefault();putCfg({annonce:$("#cAnn",m).value.trim(),accueil:$("#cAcc",m).value.trim(),premiereVisite:$("#cPv",m).value.trim(),telClub:$("#cTel",m).value.trim(),acces:$("#cAx",m).value.trim(),detresse:$("#cDet",m).value.trim()});toast("Textes enregistrés")};
   const s=$("#seed",m);if(s)s.onclick=async()=>{s.disabled=true;await importSeed();toast("Contenu importé")};
 }};

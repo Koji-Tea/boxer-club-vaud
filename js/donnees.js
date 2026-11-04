@@ -56,7 +56,8 @@ let CFG={
   annonce:"",
   accueil:"Le Boxer Club Vaud est l’un des treize groupes locaux du Boxer Club Suisse. Fondé en 1961 à Lausanne, il réunit propriétaires, éleveurs et passionnés autour de l’éducation du chien, dans le jeu et la bonne humeur. Toutes les races sont les bienvenues !",
   acces:"Le terrain et la cabane sont en lisière de forêt, près de la Venoge, dans une zone naturelle : merci de tenir les chiens en laisse en arrivant et de ramasser leurs crottes. Les cours ont lieu par tout temps.",
-  premiereVisite:"Pour une première visite, prenez contact avec la présidente, Delia, au 079 725 65 63.",
+  premiereVisite:"Pour une première visite, prenez contact avec le président, Vincent, au 079 252 77 49.",
+  telClub:"079 252 77 49", // numéro du bouton « Contacter le club » de l’accueil
   detresse:"Boxer en détresse est une section du Boxer Club Suisse qui aide les boxers à trouver un nouveau foyer, sans passer par un refuge. Responsable romande : Suzanne Rochat, 076 481 89 25. Les frais d’adoption (500 CHF) et les dons financent la pension et les soins vétérinaires d’urgence. La section fonctionne sans subvention : chaque don compte.",
 };
 
