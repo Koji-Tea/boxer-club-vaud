@@ -30,7 +30,8 @@ Un nouveau compte est **en attente** : il voit toute la vitrine, mais pas le tch
 | Comité | Valide les comptes, donne les rôles, modifie tout le contenu |
 | Moniteur·rice | Gère l’agenda des cours, les fiches moniteurs et le wiki |
 | Éleveur·euse | Publie et met à jour ses propres élevages et portées |
-| Membre / Adhérent·e | S’inscrit aux cours, tchat, liste des adhérents |
+| Membre | Ajoute des cours à l’agenda et modifie les siens, s’inscrit aux cours, tchat, liste des adhérents |
+| Adhérent·e | S’inscrit aux cours, tchat, liste des adhérents |
 | En attente | Compte créé, pas encore validé |
 
 Les droits sont vérifiés par la base elle-même (`firestore.rules`), pas seulement par l’interface.

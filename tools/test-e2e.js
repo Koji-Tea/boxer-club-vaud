@@ -50,6 +50,20 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   await go(B,'#compte');await B.click('#addDog');await B.fill('#f_nom','Rex');await B.click('.sheet button.primary');await B.waitForTimeout(1200);
   ok((await B.textContent('.dogs')).includes('Rex'),'ajout d’un chien au profil');
 
+  // Membre : ajoute des cours et ne modifie que les siens
+  r=await tryWrite(B,()=>firebase.firestore().collection('cours').add({titre:'x',uid:firebase.auth().currentUser.uid}));
+  ok(r.includes('permission'),'adhérent ne peut pas ajouter de cours');
+  await go(A,'#reglages');await A.waitForTimeout(500);
+  const bUid=await B.evaluate(()=>firebase.auth().currentUser.uid);
+  await A.selectOption(`[data-role-of="${bUid}"]`,'membre');await A.waitForTimeout(1500);
+  await go(B,'#agenda');await B.waitForTimeout(500);
+  await B.click('#addCours');await B.fill('#f_titre','Cours de Bob');await B.fill('#f_date',ds);await B.fill('#f_debut','14:00');
+  await B.click('.sheet button.primary');await B.waitForTimeout(1500);
+  ok((await B.textContent('.v-agenda')).includes('Cours de Bob'),'membre ajoute un cours');
+  r=await tryWrite(B,async()=>{const s=await firebase.firestore().collection('cours').where('titre','==','Cours test').get();return s.docs[0].ref.update({titre:'pirate'})});
+  ok(r.includes('permission'),'membre ne modifie pas le cours d’un autre');
+  r=await tryWrite(B,async()=>{const s=await firebase.firestore().collection('cours').where('titre','==','Cours de Bob').get();return s.docs[0].ref.update({titre:'Cours de Bob modifié',uid:firebase.auth().currentUser.uid})});
+  ok(r==='ok','membre modifie son propre cours');
   // Éleveur
   await go(A,'#reglages');await A.waitForTimeout(500);
   const bobUid=await B.evaluate(()=>firebase.auth().currentUser.uid);
@@ -70,7 +84,7 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
 
   // Visiteur
   const C=await mk();await C.goto(U+'#agenda');await C.waitForTimeout(1500);
-  ok((await C.$$('[data-cours]')).length===2,'visiteur voit l’agenda');
+  ok((await C.$$('[data-cours]')).length===3,'visiteur voit l’agenda');
   r=await tryWrite(C,()=>firebase.firestore().collection('users').get());ok(r.includes('permission'),'visiteur ne lit pas les comptes');
   r=await tryWrite(C,()=>firebase.firestore().collection('messages').get());ok(r.includes('permission'),'visiteur ne lit pas le tchat');
   r=await tryWrite(C,()=>firebase.firestore().collection('pseudos').get());ok(r.includes('permission'),'visiteur ne liste pas les pseudos');

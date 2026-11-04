@@ -6,7 +6,7 @@ const ROLES={
   comite:{l:"Comité",d:"Gère le contenu du club, les comptes et les rôles (sauf administrateur)."},
   moniteur:{l:"Moniteur·rice",d:"Gère l’agenda des cours, les fiches moniteurs et le wiki."},
   eleveur:{l:"Éleveur·euse",d:"Membre qui publie et met à jour ses annonces de portées."},
-  membre:{l:"Membre",d:"Membre du club : cours, tchat, liste des adhérents."},
+  membre:{l:"Membre",d:"Membre du club : ajoute des cours à l’agenda (et modifie les siens), tchat, liste des adhérents."},
   adherent:{l:"Adhérent·e",d:"Participe aux cours : inscriptions, tchat, liste des adhérents."},
   attente:{l:"En attente",d:"Compte créé, en attente de validation par le comité."},
 };
@@ -16,7 +16,7 @@ const BOARD=["admin","comite"];
 const BREEDERS=["admin","comite","eleveur"];
 /* Collections : pub = visibles par tout le monde (vitrine), sinon réservées aux membres validés. */
 const COLS={
-  cours:{pub:true,write:STAFF},
+  cours:{pub:true,write:[...STAFF,"membre"]},
   moniteurs:{pub:true,write:STAFF},
   wiki:{pub:true,write:STAFF},
   comite:{pub:true,write:BOARD},
@@ -35,6 +35,8 @@ const isBoard=()=>!!ME&&BOARD.includes(ME.role);
 const isAdmin=()=>!!ME&&ME.role==="admin";
 const canWrite=c=>!!ME&&(COLS[c].write||[]).includes(ME.role);
 // Une annonce de portée : le comité modifie tout, un·e éleveur·euse seulement les siennes.
+// Cours : les moniteurs et le comité modifient tout, un·e membre seulement les cours qu’il ou elle a ajoutés.
+const canEditCours=o=>isStaff()||(!!ME&&ME.role==="membre"&&!!o&&o.uid===ME.uid);
 const canEditDoc=(c,o)=>canWrite(c)&&(!COLS[c].own||isBoard()||(o&&o.uid===ME.uid));
 
 /* ---------- Club : infos de base (modifiables par le comité dans Réglages) ---------- */

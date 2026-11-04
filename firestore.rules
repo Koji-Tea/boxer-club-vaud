@@ -32,7 +32,13 @@ service cloud.firestore {
     }
 
     // ----- Vitrine -----
-    match /cours/{id}     { allow read: if true; allow write: if staff(); }
+    // Cours : moniteurs et comité gèrent tout ; un·e membre ajoute des cours et modifie seulement les siens.
+    match /cours/{id} {
+      allow read: if true;
+      allow create: if staff() || (role() == 'membre' && mine());
+      allow update: if staff() || (role() == 'membre' && wasMine() && mine());
+      allow delete: if staff() || (role() == 'membre' && wasMine());
+    }
     match /moniteurs/{id} { allow read: if true; allow write: if staff(); }
     match /wiki/{id}      { allow read: if true; allow write: if staff(); }
     match /comite/{id}    { allow read: if true; allow write: if board(); }
@@ -82,7 +88,8 @@ service cloud.firestore {
       allow read: if member();
       allow create: if member() && mine() && id == request.resource.data.cours + '_' + request.auth.uid
         && exists(/databases/$(database)/documents/cours/$(request.resource.data.cours));
-      allow delete: if signedIn() && (wasMine() || staff());
+      allow delete: if signedIn() && (wasMine() || staff()
+        || get(/databases/$(database)/documents/cours/$(resource.data.cours)).data.uid == request.auth.uid);
     }
     match /messages/{id} {
       allow read: if member();

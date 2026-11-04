@@ -47,11 +47,12 @@ function editCours(o){
   editSheet(o.id?"Modifier le cours":"Nouveau cours",fields,o,{wide:true,
     save:async v=>{
       const n=Math.min(52,Number(v.repeat)||0);delete v.repeat;
-      await put("cours",{...o,...v});
-      for(let i=1;i<=n;i++){const d=parseDay(v.date);d.setDate(d.getDate()+7*i);await put("cours",{...v,date:isoDay(d)})}
+      const by=o.uid||ME.uid; // auteur du cours (un·e membre ne modifie que les siens)
+      await put("cours",{...o,...v,uid:by});
+      for(let i=1;i<=n;i++){const d=parseDay(v.date);d.setDate(d.getDate()+7*i);await put("cours",{...v,uid:by,date:isoDay(d)})}
       toast(n?`${n+1} cours créés`:"Cours enregistré");
     },
-    remove:o.id&&(async()=>{await del("cours",o.id);for(const i of inscritsDe(o.id))await del("inscriptions",i.id)})});
+    remove:o.id&&(async()=>{for(const i of inscritsDe(o.id))await del("inscriptions",i.id);await del("cours",o.id)})});
 }
 function coursSheet(c){
   if(!c)return;
@@ -71,8 +72,8 @@ function coursSheet(c){
     ${c.niveau?`<p><span class="badge">${esc(c.niveau)}</span></p>`:""}
     ${c.description?`<p>${rich(c.description)}</p>`:""}
     ${m?`<a class="card row person sm" href="#moniteurs/${esc(m.id)}">${avatar(m.nom,m.photo)}<span class="grow"><b>${esc(m.nom)}</b><br><span class="small">${esc(m.titre||"Moniteur·rice")}</span></span>›</a>`:""}
-    <div class="row wrap">${action}${!passed&&!c.annule?`<button class="btn" id="ics">${ico("cal")} Ajouter à mon agenda</button>`:""}${canWrite("cours")?`<button class="btn ghost" id="editC">${ico("edit")} Modifier</button>`:""}</div>
-    ${isMember()?`<h3>Inscrit·es (${ins.length}${c.places?"/"+c.places:""})</h3>${ins.length?`<div class="chips">${ins.map(i=>`<span class="chip">${esc(i.pseudo)}${i.chien?" · 🐾 "+esc(i.chien):""}${isStaff()&&i.uid!==ME.uid?` <button class="x" data-unins="${esc(i.id)}" aria-label="Retirer">×</button>`:""}</span>`).join("")}</div>`:`<p class="muted small">Personne pour l’instant.</p>`}`:""}`);
+    <div class="row wrap">${action}${!passed&&!c.annule?`<button class="btn" id="ics">${ico("cal")} Ajouter à mon agenda</button>`:""}${canEditCours(c)?`<button class="btn ghost" id="editC">${ico("edit")} Modifier</button>`:""}</div>
+    ${isMember()?`<h3>Inscrit·es (${ins.length}${c.places?"/"+c.places:""})</h3>${ins.length?`<div class="chips">${ins.map(i=>`<span class="chip">${esc(i.pseudo)}${i.chien?" · 🐾 "+esc(i.chien):""}${canEditCours(c)&&i.uid!==ME.uid?` <button class="x" data-unins="${esc(i.id)}" aria-label="Retirer">×</button>`:""}</span>`).join("")}</div>`:`<p class="muted small">Personne pour l’instant.</p>`}`:""}`);
   const b=(id,f)=>{const e=$("#"+id,s);if(e)e.onclick=f};
   b("reg",async()=>{if(await sInscrire(c)){toast("Inscription enregistrée 🐾");coursSheet(get("cours",c.id));if(rappelOn()&&notifSupported()&&Notification.permission==="default")offerNotif()}});
   b("unreg",async()=>{await seDesinscrire(c);toast("Désinscription enregistrée");coursSheet(get("cours",c.id))});
