@@ -90,7 +90,18 @@ VIEWS.club={t:"Comité & adhérents",r(){
   return`<div class="seg"><a href="#club" class="${tab==="comite"?"on":""}">Le comité</a><a href="#club/adherents" class="${tab==="adherents"?"on":""}">Adhérents</a></div>
     ${tab==="comite"?comiteHTML():adherentsHTML()}`;
 },bind(m){
-  const ed=o=>editSheet(o.id?"Modifier":"Nouveau membre du comité",COM_FIELDS,o,{save:v=>put("comite",{...o,...v}),remove:o.id&&(()=>del("comite",o.id))});
+  const ed=o=>{
+    const lie=o.compte&&get("users",o.compte);
+    const fields=[...COM_FIELDS];
+    // Le comité relie la fiche au compte de la personne dans l'app pour lui donner son rôle (président·e, caissier·ère…).
+    if(isBoard())fields.push(
+      {k:"compte",l:"Son compte dans l’app",t:"select",o:[["","— pas encore de compte —"],...all("users").sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo)).map(u=>[u.id,u.pseudo+(u.prenom?" · "+u.prenom:"")])],h:"La personne doit d’abord créer son compte dans l’app (Mon compte › Créer un compte)."},
+      {k:"appRole",l:"Rôle dans l’app",t:"select",o:roleChoices(lie||{}),d:lie?lie.role:"comite",h:"Donne les droits correspondants. Président·e, Caissier·ère et Administrateur·rice : réservé à l’admin."});
+    editSheet(o.id?"Modifier":"Nouveau membre du comité",fields,{...o,appRole:lie?lie.role:undefined},{wide:true,
+      save:async v=>{const r=v.appRole;delete v.appRole;await put("comite",{...o,...v});
+        const u=v.compte&&get("users",v.compte);if(u&&r&&r!==u.role&&(isAdmin()||(!SENSITIVE.includes(r)&&!SENSITIVE.includes(u.role)))){await setRole(u.id,r);toast("Rôle de "+u.pseudo+" : "+ROLES[r].l)}},
+      remove:o.id&&(()=>del("comite",o.id))});
+  };
   const a=$("#addCom",m);if(a)a.onclick=()=>ed({});
   $$("[data-com]",m).forEach(b=>b.onclick=()=>ed(get("comite",b.dataset.com)));
   const q=$("#adhQ",m);if(q)q.oninput=()=>{const t=norm(q.value);$$(".adh",m).forEach(x=>x.hidden=t&&!norm(x.dataset.s).includes(t))};
@@ -101,13 +112,16 @@ VIEWS.club={t:"Comité & adhérents",r(){
 function comiteHTML(){
   return`<p class="lead">Les membres du comité du Boxer Club Vaud.</p>
     ${canWrite("comite")?`<div class="row end">${addBtn("addCom")}</div>`:""}
-    <div class="people">${all("comite").sort(byOrder).map(p=>`<div class="card person">${avatar(p.nom,p.photo,"lg")}<div class="grow"><b>${esc(p.nom)}</b><span class="role">${esc(p.role)}</span>
-      <div class="small">${p.tel?telLink(p.tel)+"<br>":""}${mailLink(p.email)}</div></div>${canWrite("comite")?editBtn("data-com",p.id):""}</div>`).join("")}</div>`;
+    <div class="people">${all("comite").sort(byOrder).map(p=>{const u=isBoard()&&p.compte&&get("users",p.compte);
+      return`<div class="card com"><div class="person">${avatar(p.nom,p.photo,"lg")}<div class="grow"><b>${esc(p.nom)}</b><span class="role">${esc(p.role)}</span>
+      <div class="small">${p.tel?telLink(p.tel)+"<br>":""}${mailLink(p.email)}</div></div>${canWrite("comite")?editBtn("data-com",p.id):""}</div>
+      ${isBoard()?`<div class="adh-foot">${u?`<span class="small">Compte <b>${esc(u.pseudo)}</b></span><label class="role-lab">Rôle ${roleSelect(u)}</label>`:`<span class="small muted">Pas de compte lié : touche ✎ pour choisir son compte et son rôle.</span>`}</div>`:""}</div>`}).join("")}</div>`;
 }
 // Liste déroulante du rôle d'un compte (comité) : admin, président·e et caissier·ère ne sont donnés que par un·e admin.
+const roleChoices=u=>Object.keys(ROLES).filter(r=>!SENSITIVE.includes(r)||isAdmin()||u.role===r).map(r=>[r,ROLES[r].l]);
 function roleSelect(u){
   if(u.id===ME.uid&&!isAdmin())return`<span class="badge r-${esc(u.role)}">${esc(ROLES[u.role].l)}</span>`;
-  const opts=Object.keys(ROLES).filter(r=>!SENSITIVE.includes(r)||isAdmin()||u.role===r).map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLES[r].l}</option>`).join("");
+  const opts=roleChoices(u).map(([r,l])=>`<option value="${r}"${u.role===r?" selected":""}>${l}</option>`).join("");
   return`<select class="role-sel" data-role-of="${esc(u.id)}" aria-label="Rôle de ${esc(u.pseudo)}"${SENSITIVE.includes(u.role)&&!isAdmin()?" disabled":""}>${opts}</select>`;
 }
 function bindRoleSelects(m){$$("[data-role-of]",m).forEach(s=>s.onchange=()=>{setRole(s.dataset.roleOf,s.value);toast("Rôle de "+((get("users",s.dataset.roleOf)||{}).pseudo||"")+" : "+ROLES[s.value].l)})}
@@ -121,7 +135,7 @@ function adherentsHTML(){
     <div class="list">${list.map(u=>`<div class="card adh" data-s="${esc([u.pseudo,u.prenom,u.chien].join(" "))}"><button class="adh-main row" data-user="${esc(u.id)}">
       ${avatar(u.pseudo,u.photo)}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?` <span class="muted">· ${esc(u.prenom)}</span>`:""}<br><span class="small">${u.chien?"🐾 "+esc(u.chien):""}</span></span>
       <span class="badge r-${esc(u.role)}">${esc(ROLES[u.role].l)}</span></button>
-      ${fin||isBoard()?`<div class="adh-foot">${isBoard()?`<label class="role-lab">Rôle ${roleSelect(u)}</label>`:""}${fin?`<label class="chk"><input type="checkbox" data-cotis="${esc(u.id)}"${cotisPayee(u.id)?" checked":""}> Cotisation ${an} réglée</label>`:""}</div>`:""}</div>`).join("")}</div>`;
+      ${fin?`<div class="adh-foot">${fin?`<label class="chk"><input type="checkbox" data-cotis="${esc(u.id)}"${cotisPayee(u.id)?" checked":""}> Cotisation ${an} réglée</label>`:""}</div>`:""}</div>`).join("")}</div>`;
 }
 // Fiche d'un·e adhérent·e et de ses chiens.
 function userSheet(u){

@@ -99,9 +99,13 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   r=await B.evaluate(async u=>{try{await firebase.firestore().doc('users/'+u).update({role:'president'});return 'ok'}catch(e){return String(e.message).toLowerCase()}},dUid);
   ok(r.includes('permission'),'caissier·ère ne nomme pas de président·e');
   // Rôle donné depuis la liste des adhérents ; Responsable éducation
-  await go(A,'#club/adherents');await A.waitForTimeout(800);
-  await A.selectOption(`.v-club [data-role-of="${dUid}"]`,'educ');await A.waitForTimeout(1500);
-  ok((await D.evaluate(()=>ME.role))==='educ','rôle donné depuis la liste des adhérents');
+  await go(A,'#club');await A.waitForTimeout(800);
+  await A.click('[data-com]');await A.waitForTimeout(300);
+  await A.selectOption('#f_compte',dUid);await A.selectOption('#f_appRole','educ');await A.click('.sheet button.primary');await A.waitForTimeout(1800);
+  ok((await D.evaluate(()=>ME.role))==='educ','rôle donné depuis la fiche du comité');
+  await go(A,'#club');await A.waitForTimeout(600);
+  ok(!!(await A.$(`.card.com [data-role-of="${dUid}"]`)),'rôle modifiable sur la carte du comité');
+  await go(A,'#club/adherents');await A.waitForTimeout(600);ok(!(await A.$('[data-role-of]')),'plus de choix de rôle dans les adhérents');
   r=await D.evaluate(async()=>{try{const s=await firebase.firestore().collection('cours').where('titre','==','Cours de Bob modifié').get();await s.docs[0].ref.update({annule:true});return 'ok'}catch(e){return e.message}});
   ok(r==='ok','responsable éducation annule le cours d’un autre');
   r=await D.evaluate(async()=>{try{await firebase.firestore().collection('wiki').add({q:'Q ?',r:'R',cat:'Le boxer'});return 'ok'}catch(e){return e.message}});
