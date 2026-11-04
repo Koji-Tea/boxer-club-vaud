@@ -13,6 +13,7 @@ VIEWS.accueil={t:"Accueil",r(){
       <p class="lead">${rich(CFG.accueil)}</p>
       <div class="row wrap">${ME?`<a class="btn primary" href="#agenda">${ico("cal")} Voir les cours</a>`:`<a class="btn primary" href="#compte">${ico("user")} Créer mon compte</a><a class="btn" href="#agenda">${ico("cal")} Les cours</a>`}</div>
     </section>
+    ${installBanner()}
     ${CFG.annonce?`<div class="banner">${ico("bell")}<div>${rich(CFG.annonce)}</div></div>`:""}
     ${ME&&ME.role==="attente"?`<div class="banner info">${ico("clock")}<div>Ton compte attend la validation du comité. En attendant, tu peux tout consulter sauf le tchat et la liste des adhérents.</div></div>`:""}
     <h2 class="h">Prochains rendez-vous</h2>

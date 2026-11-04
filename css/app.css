@@ -243,3 +243,4 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--fauve);outline-o
 .toast{background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;box-shadow:var(--shadow);font-weight:600;max-width:440px;transition:opacity .4s,transform .4s}
 .toast.bad{background:var(--bad);color:#fff}
 .toast.out{opacity:0;transform:translateY(8px)}
+.banner.install{margin-top:16px}

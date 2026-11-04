@@ -39,14 +39,27 @@ function openMore(){
 let installEvt=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;render()});
 const standalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone;
-const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent);
-const installBtn=()=>standalone()?"":installEvt||isIOS()?`<button class="btn block" data-install>${ico("plus")} Installer l’app</button>`:"";
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const isAndroid=()=>/android/i.test(navigator.userAgent);
+// Le bouton est toujours proposé hors de l'app installée : s'il n'y a pas d'installation directe, il explique comment faire.
+const installBtn=()=>standalone()?"":`<button class="btn block" data-install>${ico("plus")} Installer l’app</button>`;
+// Bandeau sur l'accueil du téléphone (masquable) : sur mobile, le menu latéral et son bouton sont cachés.
+const installBanner=()=>standalone()||ls("bcv-install-ok")||!matchMedia("(max-width:899px)").matches?"":
+  `<div class="banner info install">${ico("plus")}<div class="grow"><b>Installe l’app sur ton téléphone</b><br><span class="small">Elle s’ouvre ensuite comme une vraie app, depuis l’écran d’accueil.</span><div class="row wrap"><button class="btn sm primary" data-install>Installer</button><button class="btn sm ghost" id="installNo">Plus tard</button></div></div></div>`;
+function installHelp(){
+  const ios=`<h3>iPhone / iPad</h3><ol class="steps"><li>Ouvre l’app dans <b>Safari</b> (pas dans Chrome ni dans une autre app).</li><li>Touche le bouton <b>Partager</b> (carré avec une flèche vers le haut), en bas ou en haut de l’écran.</li><li>Fais défiler et choisis <b>Sur l’écran d’accueil</b>, puis <b>Ajouter</b>.</li></ol>`;
+  const and=`<h3>Android</h3><ol class="steps"><li>Ouvre l’app dans <b>Chrome</b>.</li><li>Touche le menu <b>⋮</b> en haut à droite.</li><li>Choisis <b>Installer l’application</b> (ou <b>Ajouter à l’écran d’accueil</b>), puis confirme.</li></ol>`;
+  const pc=`<h3>Ordinateur</h3><p>Dans Chrome ou Edge, clique sur l’icône d’installation à droite de la barre d’adresse.</p>`;
+  sheet("Installer l’app",isIOS()?ios:isAndroid()?and:ios+and+pc);
+}
 function bindInstall(root){
   $$("[data-install]",root).forEach(b=>b.onclick=async()=>{
-    if(installEvt){installEvt.prompt();await installEvt.userChoice;installEvt=null;render()}
-    else sheet("Installer sur iPhone",`<ol class="steps"><li>Dans Safari, touche le bouton <b>Partager</b> (carré avec une flèche).</li><li>Choisis <b>Sur l’écran d’accueil</b>.</li><li>Touche <b>Ajouter</b> : l’app Boxer Club apparaît avec tes autres apps.</li></ol>`);
+    if(installEvt){installEvt.prompt();const r=await installEvt.userChoice;installEvt=null;if(r&&r.outcome==="accepted")ls("bcv-install-ok","1");render()}
+    else installHelp();
   });
+  const no=$("#installNo",root);if(no)no.onclick=()=>{ls("bcv-install-ok","1");render()};
 }
+window.addEventListener("appinstalled",()=>{ls("bcv-install-ok","1");render()});
 
 /* ---------- Affichage ---------- */
 function render(){
