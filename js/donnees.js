@@ -3,6 +3,8 @@
    Les mêmes droits sont vérifiés par la base dans firestore.rules : garder les deux fichiers d'accord. */
 const ROLES={
   admin:{l:"Administrateur·rice",d:"Tout, y compris la validation des comptes et les rôles."},
+  president:{l:"Président·e",d:"Comme le comité, et coche les cotisations payées. Nommé·e par un·e administrateur·rice."},
+  caissier:{l:"Caissier·ère",d:"Comme le comité, et coche les cotisations payées. Nommé·e par un·e administrateur·rice."},
   comite:{l:"Comité",d:"Gère le contenu du club, les comptes et les rôles (sauf administrateur)."},
   moniteur:{l:"Moniteur·rice",d:"Gère l’agenda des cours, les fiches moniteurs et le wiki."},
   eleveur:{l:"Éleveur·euse",d:"Membre qui publie et met à jour ses annonces de portées."},
@@ -10,10 +12,14 @@ const ROLES={
   adherent:{l:"Adhérent·e",d:"Participe aux cours : inscriptions, tchat, liste des adhérents."},
   attente:{l:"En attente",d:"Compte créé, en attente de validation par le comité."},
 };
-const MEMBERS=["admin","comite","moniteur","eleveur","membre","adherent"];
-const STAFF=["admin","comite","moniteur"];
-const BOARD=["admin","comite"];
-const BREEDERS=["admin","comite","eleveur"];
+const MEMBERS=["admin","president","caissier","comite","moniteur","eleveur","membre","adherent"];
+const STAFF=["admin","president","caissier","comite","moniteur"];
+const BOARD=["admin","president","caissier","comite"];
+const BREEDERS=["admin","president","caissier","comite","eleveur"];
+// Cotisations : visibles et modifiables seulement par l'admin, le/la président·e et le/la caissier·ère.
+const FINANCE=["admin","president","caissier"];
+// Rôles que seul·e un·e administrateur·rice peut donner ou retirer.
+const SENSITIVE=["admin","president","caissier"];
 /* Collections : pub = visibles par tout le monde (vitrine), sinon réservées aux membres validés. */
 const COLS={
   cours:{pub:true,write:[...STAFF,"membre"]},
@@ -26,6 +32,7 @@ const COLS={
   inscriptions:{},
   messages:{},
   users:{},
+  cotisations:{}, // un document par compte : {paye:{"2026":true}}
 };
 
 let ME=null; // null = visiteur non connecté
@@ -33,6 +40,7 @@ const isMember=()=>!!ME&&MEMBERS.includes(ME.role);
 const isStaff=()=>!!ME&&STAFF.includes(ME.role);
 const isBoard=()=>!!ME&&BOARD.includes(ME.role);
 const isAdmin=()=>!!ME&&ME.role==="admin";
+const isFinance=()=>!!ME&&FINANCE.includes(ME.role);
 const canWrite=c=>!!ME&&(COLS[c].write||[]).includes(ME.role);
 // Une annonce de portée : le comité modifie tout, un·e éleveur·euse seulement les siennes.
 // Cours : les moniteurs et le comité modifient tout, un·e membre seulement les cours qu’il ou elle a ajoutés.
@@ -135,8 +143,10 @@ function demoData(){
     users:[
       {id:"demo1",pseudo:"Rocky_et_moi",prenom:"Julien",chien:"Rocky",chiens:[{nom:"Rocky",sexe:"M",naissance:"2023-04-12",race:"Boxer",remarque:"Castré. Un peu timide avec les grands chiens."}],role:"adherent"},
       {id:"demo2",pseudo:"Nala",prenom:"Sophie",chien:"Nala",chiens:[{nom:"Nala",sexe:"F",naissance:"2021-09-02",race:"Boxer bringée",remarque:"Stérilisée."}],role:"membre"},
+      {id:"demo4",pseudo:"Mandy",prenom:"Mandy",chien:"",chiens:[],role:"caissier"},
       {id:"demo3",pseudo:"Bella22",prenom:"Marc",chien:"Bella",chiens:[{nom:"Bella",sexe:"F",naissance:"2025-06-20",race:"Labrador",remarque:"Chiot, pas encore stérilisée."}],role:"attente"},
-    ]};
+    ],
+    cotisations:[{id:"demo2",paye:{[String(new Date().getFullYear())]:true}}]};
 }
 
 /* ---------- Stockage ----------
@@ -198,15 +208,16 @@ function listenPublic(){
 }
 function listenMembers(){
   unsubs.forEach(u=>u());unsubs=[];
-  ["inscriptions","messages","users"].forEach(c=>S[c]=new Map());
+  ["inscriptions","messages","users","cotisations"].forEach(c=>S[c]=new Map());
   if(!ME)return;
   const sub=(c,q)=>unsubs.push(q.onSnapshot(s=>{S[c]=new Map(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));changed()},e=>console.warn(c,e.code)));
   // Son propre profil : un changement de rôle par le comité s'applique tout de suite.
-  unsubs.push(DB.doc("users/"+ME.uid).onSnapshot(s=>{if(!s.exists)return;const p=s.data();const was=isMember();ME={...ME,...p};if(isMember()!==was)listenMembers();changed()},()=>{}));
+  unsubs.push(DB.doc("users/"+ME.uid).onSnapshot(s=>{if(!s.exists)return;const p=s.data();const was=[isMember(),isFinance()]+"";ME={...ME,...p};if([isMember(),isFinance()]+""!==was)listenMembers();changed()},()=>{}));
   if(!isMember())return;
   sub("users",DB.collection("users"));
   sub("inscriptions",DB.collection("inscriptions"));
   sub("messages",DB.collection("messages").orderBy("at","desc").limit(200));
+  if(isFinance())sub("cotisations",DB.collection("cotisations"));
 }
 async function connect(){
   const conf=window.BCV_FIREBASE_CONFIG;
@@ -301,6 +312,15 @@ async function updateProfile(p){
 async function setRole(id,role){
   if(MODE==="cloud"){try{await DB.doc("users/"+id).update({role})}catch(e){dbErr(e)}}
   else{const u=get("users",id);if(u){S.users.set(id,{...u,role});if(id==="local")ME={...ME,role};saveLocal();changed()}}
+}
+/* ---------- Cotisations ---------- */
+const anneeCotis=()=>String(new Date().getFullYear());
+const cotisPayee=(uid,an=anneeCotis())=>!!((get("cotisations",uid)||{}).paye||{})[an];
+async function setCotis(uid,val,an=anneeCotis()){
+  const o=get("cotisations",uid)||{id:uid,paye:{}};
+  const n={...o,id:uid,paye:{...(o.paye||{}),[an]:val},by:ME.pseudo||"",at:new Date().toISOString()};
+  S.cotisations.set(uid,n);changed();
+  if(MODE==="cloud"){try{await DB.doc("cotisations/"+uid).set(clean(n))}catch(e){S.cotisations.set(uid,o);changed();dbErr(e)}}else saveLocal();
 }
 async function removeUser(u){
   if(MODE==="cloud"){

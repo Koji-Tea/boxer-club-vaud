@@ -95,6 +95,7 @@ VIEWS.club={t:"Comité & adhérents",r(){
   $$("[data-com]",m).forEach(b=>b.onclick=()=>ed(get("comite",b.dataset.com)));
   const q=$("#adhQ",m);if(q)q.oninput=()=>{const t=norm(q.value);$$(".adh",m).forEach(x=>x.hidden=t&&!norm(x.dataset.s).includes(t))};
   $$("[data-user]",m).forEach(b=>b.onclick=()=>userSheet(get("users",b.dataset.user)));
+  $$("[data-cotis]",m).forEach(c=>c.onchange=()=>{setCotis(c.dataset.cotis,c.checked);toast(c.checked?"Cotisation notée comme réglée":"Cotisation notée comme non réglée")});
 }};
 function comiteHTML(){
   return`<p class="lead">Les membres du comité du Boxer Club Vaud.</p>
@@ -105,11 +106,14 @@ function comiteHTML(){
 function adherentsHTML(){
   const lock=membersOnly("La liste des adhérents");if(lock)return lock;
   const list=all("users").filter(u=>MEMBERS.includes(u.role)).sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo));
+  const an=anneeCotis(),fin=isFinance(),nb=fin?list.filter(u=>cotisPayee(u.id)).length:0;
   return`<p class="muted">${list.length} membre${list.length>1?"s":""} et adhérent·es inscrit·es dans l’app.</p>
+    ${fin?`<div class="banner info cotis">${ico("check")}<div><b>Cotisations ${an} : ${nb} sur ${list.length} réglée${nb>1?"s":""}.</b><br><span class="small">Cette information n’est visible que par l’admin, le/la président·e et le/la caissier·ère.</span></div></div>`:""}
     <div class="search">${ico("search")}<input id="adhQ" type="search" placeholder="Chercher un pseudo, un prénom, un chien…"></div>
-    <div class="list">${list.map(u=>`<button class="card adh row" data-user="${esc(u.id)}" data-s="${esc([u.pseudo,u.prenom,u.chien].join(" "))}">
+    <div class="list">${list.map(u=>`<div class="card adh" data-s="${esc([u.pseudo,u.prenom,u.chien].join(" "))}"><button class="adh-main row" data-user="${esc(u.id)}">
       ${avatar(u.pseudo,u.photo)}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?` <span class="muted">· ${esc(u.prenom)}</span>`:""}<br><span class="small">${u.chien?"🐾 "+esc(u.chien):""}</span></span>
-      <span class="badge r-${esc(u.role)}">${esc(ROLES[u.role].l)}</span></button>`).join("")}</div>`;
+      <span class="badge r-${esc(u.role)}">${esc(ROLES[u.role].l)}</span></button>
+      ${fin?`<label class="chk cotis-chk"><input type="checkbox" data-cotis="${esc(u.id)}"${cotisPayee(u.id)?" checked":""}> Cotisation ${an} réglée</label>`:""}</div>`).join("")}</div>`;
 }
 // Fiche d'un·e adhérent·e et de ses chiens.
 function userSheet(u){

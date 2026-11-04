@@ -77,6 +77,27 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   r=await tryWrite(B,async()=>{const s=await firebase.firestore().collection('elevages').get();const o=s.docs.find(d=>d.data().nom!=='Élevage de Bob');return o.ref.update({nom:'pirate'})});
   ok(r.includes('permission'),'éleveur ne modifie pas l’élevage d’un autre');
 
+  // Cotisations : seulement admin, président·e, caissier·ère
+  const D=await mk();await reg(D,'Cleo','cleo@test.ch');
+  const dUid=await D.evaluate(()=>firebase.auth().currentUser.uid);
+  await go(A,'#reglages');await A.waitForTimeout(800);
+  await A.selectOption(`[data-role-of="${dUid}"]`,'comite').catch(async()=>{await A.click(`[data-ok="${dUid}"][data-r=membre]`);await A.waitForTimeout(1200);await A.selectOption(`[data-role-of="${dUid}"]`,'comite')});
+  await A.waitForTimeout(1200);
+  r=await tryWrite(D,()=>firebase.firestore().collection('cotisations').get());ok(r.includes('permission'),'comité ne voit pas les cotisations');
+  r=await tryWrite(D,()=>firebase.firestore().doc('cotisations/x').set({paye:{}}));ok(r.includes('permission'),'comité ne coche pas les cotisations');
+  const bU=bUid;
+  r=await D.evaluate(async u=>{try{await firebase.firestore().doc('users/'+u).update({role:'caissier'});return 'ok'}catch(e){return String(e.message).toLowerCase()}},bU);
+  ok(r.includes('permission'),'comité ne peut pas nommer un·e caissier·ère');
+  await go(D,'#club/adherents');await D.waitForTimeout(800);ok(!(await D.$('[data-cotis]')),'comité ne voit pas les cases cotisation');
+  await go(A,'#reglages');await A.waitForTimeout(500);
+  await A.selectOption(`[data-role-of="${bU}"]`,'caissier');await A.waitForTimeout(1800);
+  await go(B,'#club/adherents');await B.waitForTimeout(1500);
+  const box=await B.$(`[data-cotis="${dUid}"]`);ok(!!box,'caissier·ère voit les cases cotisation');
+  if(box){await box.check();await B.waitForTimeout(1200)}
+  await go(A,'#club/adherents');await A.waitForTimeout(1200);
+  ok(await A.isChecked(`[data-cotis="${dUid}"]`).catch(()=>false),'admin voit la cotisation cochée par la caissière');
+  r=await B.evaluate(async u=>{try{await firebase.firestore().doc('users/'+u).update({role:'president'});return 'ok'}catch(e){return String(e.message).toLowerCase()}},dUid);
+  ok(r.includes('permission'),'caissier·ère ne nomme pas de président·e');
   // Connexion par pseudo
   await B.click('[href="#compte"]');await go(B,'#compte');await B.click('#out');await B.waitForTimeout(1000);
   await go(B,'#compte');await B.fill('#lId','bob');await B.fill('#lPass','secret123');await B.click('#logForm button.primary');await B.waitForTimeout(2000);

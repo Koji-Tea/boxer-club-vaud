@@ -137,15 +137,15 @@ VIEWS.reglages={t:"Réglages",r(){
   if(!isBoard())return`<p class="muted">Réservé au comité.</p>`;
   const users=all("users").sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo));
   const wait=users.filter(u=>u.role==="attente");
-  const roleOpts=u=>Object.keys(ROLES).filter(r=>r!=="admin"||isAdmin()||u.role==="admin").map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLES[r].l}</option>`).join("");
+  const roleOpts=u=>Object.keys(ROLES).filter(r=>!SENSITIVE.includes(r)||isAdmin()||u.role===r).map(r=>`<option value="${r}"${u.role===r?" selected":""}>${ROLES[r].l}</option>`).join("");
   const empty=["comite","moniteurs","urgences","elevages","wiki"].filter(c=>!S[c].size);
   return`<h2 class="h">Comptes à valider${wait.length?` <em class="pill">${wait.length}</em>`:""}</h2>
     ${wait.length?`<div class="list">${wait.map(u=>`<div class="card row wrap">${avatar(u.pseudo,u.photo)}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?" · "+esc(u.prenom):""}<br><span class="small">${u.chien?"🐾 "+esc(u.chien)+" · ":""}inscrit·e ${esc(fmtAgo(u.at||u.createdAt||new Date().toISOString()))}</span></span>
       <button class="btn sm primary" data-ok="${esc(u.id)}" data-r="adherent">Adhérent·e</button><button class="btn sm primary" data-ok="${esc(u.id)}" data-r="membre">Membre</button><button class="btn sm ghost" data-see="${esc(u.id)}">Fiche</button><button class="btn sm danger ghost" data-no="${esc(u.id)}">Refuser</button></div>`).join("")}</div>`:`<p class="muted">Aucun compte en attente.</p>`}
     <h2 class="h">Tous les comptes (${users.length})</h2>
     <div class="list">${users.filter(u=>u.role!=="attente").map(u=>`<div class="card row wrap">${avatar(u.pseudo,u.photo,"sm")}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?" · "+esc(u.prenom):""}</span>
-      ${u.id===ME.uid&&!isAdmin()?`<span class="badge">${esc(ROLES[u.role].l)}</span>`:`<select data-role-of="${esc(u.id)}" aria-label="Rôle de ${esc(u.pseudo)}"${u.role==="admin"&&!isAdmin()?" disabled":""}>${roleOpts(u)}</select>`}
-      ${u.id!==ME.uid&&(isAdmin()||u.role!=="admin")?`<button class="iconbtn" data-no="${esc(u.id)}" aria-label="Retirer">${ico("trash")}</button>`:""}</div>`).join("")}</div>
+      ${u.id===ME.uid&&!isAdmin()?`<span class="badge">${esc(ROLES[u.role].l)}</span>`:`<select data-role-of="${esc(u.id)}" aria-label="Rôle de ${esc(u.pseudo)}"${SENSITIVE.includes(u.role)&&!isAdmin()?" disabled":""}>${roleOpts(u)}</select>`}
+      ${u.id!==ME.uid&&(isAdmin()||!SENSITIVE.includes(u.role))?`<button class="iconbtn" data-no="${esc(u.id)}" aria-label="Retirer">${ico("trash")}</button>`:""}</div>`).join("")}</div>
     <details class="card"><summary>Ce que permet chaque rôle</summary>${Object.entries(ROLES).map(([k,r])=>`<p class="small"><b>${r.l}</b> : ${r.d}</p>`).join("")}</details>
     <h2 class="h">Textes de l’app</h2>
     <form id="cfgForm" class="form card">

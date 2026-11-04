@@ -10,9 +10,12 @@ service cloud.firestore {
     function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
     function setupPath() { return /databases/$(database)/documents/config/setup; }
     function role() { return signedIn() && exists(userPath(request.auth.uid)) ? get(userPath(request.auth.uid)).data.role : 'aucun'; }
-    function member() { return role() in ['admin', 'comite', 'moniteur', 'eleveur', 'membre', 'adherent']; }
-    function staff() { return role() in ['admin', 'comite', 'moniteur']; }
-    function board() { return role() in ['admin', 'comite']; }
+    function member() { return role() in ['admin', 'president', 'caissier', 'comite', 'moniteur', 'eleveur', 'membre', 'adherent']; }
+    function staff() { return role() in ['admin', 'president', 'caissier', 'comite', 'moniteur']; }
+    function board() { return role() in ['admin', 'president', 'caissier', 'comite']; }
+    // Cotisations : admin, président·e et caissier·ère seulement. Ces trois rôles ne sont donnés que par un·e admin.
+    function finance() { return role() in ['admin', 'president', 'caissier']; }
+    function sensitive(r) { return r in ['admin', 'president', 'caissier']; }
     function isAdmin() { return role() == 'admin'; }
     function breeder() { return role() == 'eleveur'; }
     function mine() { return request.resource.data.uid == request.auth.uid; }
@@ -72,14 +75,18 @@ service cloud.firestore {
       allow create: if signedIn() && request.auth.uid == uid && pseudoOwned(uid)
         && (request.resource.data.role == 'attente'
             || (request.resource.data.role == 'admin' && !exists(setupPath()) && getAfter(setupPath()).data.admin == uid));
-      // Chacun modifie son profil (pas son rôle) ; le comité change les rôles (seul un admin touche au rôle administrateur).
+      // Chacun modifie son profil (pas son rôle) ; le comité change les rôles (seul un admin touche aux rôles admin, président·e, caissier·ère).
       allow update: if (request.auth.uid == uid
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pseudo', 'pk', 'prenom', 'chiens', 'chien', 'photo'])
             && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['pk']) || pseudoOwned(uid)))
         || (board() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
-            && request.resource.data.role in ['admin', 'comite', 'moniteur', 'eleveur', 'membre', 'adherent', 'attente']
-            && (isAdmin() || (resource.data.role != 'admin' && request.resource.data.role != 'admin')));
-      allow delete: if board() && request.auth.uid != uid && (isAdmin() || resource.data.role != 'admin');
+            && request.resource.data.role in ['admin', 'president', 'caissier', 'comite', 'moniteur', 'eleveur', 'membre', 'adherent', 'attente']
+            && (isAdmin() || (!sensitive(resource.data.role) && !sensitive(request.resource.data.role))));
+      allow delete: if board() && request.auth.uid != uid && (isAdmin() || !sensitive(resource.data.role));
+    }
+    // Cotisation de l'année réglée ou non (un document par compte).
+    match /cotisations/{uid} {
+      allow read, write: if finance();
     }
 
     // ----- Espace membres -----
