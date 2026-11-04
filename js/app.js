@@ -10,7 +10,10 @@ const TABS=["accueil","agenda","tchat","urgences"];
 let ROUTE="accueil",ARG="";
 function route(){
   const h=decodeURIComponent(location.hash.slice(1)||"accueil");const[r,...a]=h.split("/");
-  ROUTE=VIEWS[r]?r:"accueil";ARG=a.join("/");closeSheet();render();window.scrollTo(0,0);
+  ROUTE=VIEWS[r]?r:"accueil";ARG=a.join("/");
+  // Accueil : adresse sans « #accueil », plus propre à partager.
+  if(ROUTE==="accueil"&&!ARG&&location.hash)history.replaceState(null,"",location.pathname+location.search);
+ closeSheet();render();window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",route);
 
