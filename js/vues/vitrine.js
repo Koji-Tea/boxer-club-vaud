@@ -27,7 +27,7 @@ VIEWS.accueil={t:"Accueil",r(){
       <a class="tile" href="#acces">${ico("map")}<span>Venir au club</span></a>
       <a class="tile" href="#soutenir">${ico("heart")}<span>Soutenir</span></a>
     </div>
-    <div class="card soft"><h3>Première visite ?</h3><p>${rich(CFG.premiereVisite)}</p>${CFG.telClub?`<a class="btn sm" href="tel:${esc(CFG.telClub.replace(/[^\d+]/g,""))}">${ico("phone")} Contacter le club · ${esc(CFG.telClub)}</a>`:""}</div>`;
+    <div class="card soft"><h3>Première visite ?</h3><p>${rich(CFG.premiereVisite)}</p>${CFG.telClub?`<a class="btn sm" href="tel:${esc(CFG.telClub.replace(/[^\d+]/g,""))}">${ico("phone")} Contacter le club</a>`:""}</div>`;
 }};
 
 /* ---------- Plan d'accès ---------- */
