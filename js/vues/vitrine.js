@@ -97,7 +97,7 @@ VIEWS.club={t:"Comité & adhérents",r(){
   $$("[data-user]",m).forEach(b=>b.onclick=()=>userSheet(get("users",b.dataset.user)));
 }};
 function comiteHTML(){
-  return`<p class="lead">Les « chefs de meute » du Boxer Club Vaud.</p>
+  return`<p class="lead">Les membres du comité du Boxer Club Vaud.</p>
     ${canWrite("comite")?`<div class="row end">${addBtn("addCom")}</div>`:""}
     <div class="people">${all("comite").sort(byOrder).map(p=>`<div class="card person">${avatar(p.nom,p.photo,"lg")}<div class="grow"><b>${esc(p.nom)}</b><span class="role">${esc(p.role)}</span>
       <div class="small">${p.tel?telLink(p.tel)+"<br>":""}${mailLink(p.email)}</div></div>${canWrite("comite")?editBtn("data-com",p.id):""}</div>`).join("")}</div>`;
