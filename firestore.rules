@@ -1,0 +1,95 @@
+rules_version = '2';
+// Règles d'accès de la base Boxer Club Vaud (à coller dans Console Firebase > Firestore Database > Règles).
+// Garder d'accord avec ROLES et COLS dans js/donnees.js.
+// - La vitrine (cours, moniteurs, wiki, comité, urgences, élevages, portées) est lisible par tout le monde.
+// - Le tchat, les inscriptions et la liste des adhérents sont réservés aux membres validés.
+// - Un nouveau compte est « en attente » jusqu'à ce que le comité lui donne un rôle. Le tout premier compte devient administrateur.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
+    function setupPath() { return /databases/$(database)/documents/config/setup; }
+    function role() { return signedIn() && exists(userPath(request.auth.uid)) ? get(userPath(request.auth.uid)).data.role : 'aucun'; }
+    function member() { return role() in ['admin', 'comite', 'moniteur', 'eleveur', 'membre', 'adherent']; }
+    function staff() { return role() in ['admin', 'comite', 'moniteur']; }
+    function board() { return role() in ['admin', 'comite']; }
+    function isAdmin() { return role() == 'admin'; }
+    function breeder() { return role() == 'eleveur'; }
+    function mine() { return request.resource.data.uid == request.auth.uid; }
+    function wasMine() { return resource.data.uid == request.auth.uid; }
+    function pseudoOwned(uid) { return getAfter(/databases/$(database)/documents/pseudos/$(request.resource.data.pk)).data.uid == uid; }
+
+    // Réglages du club (textes de l'accueil, annonce…).
+    match /config/main {
+      allow read: if true;
+      allow write: if board();
+    }
+    // Marque que le premier administrateur existe : créée une seule fois, avec la fiche de cet admin.
+    match /config/setup {
+      allow get: if true;
+      allow create: if signedIn() && request.resource.data.admin == request.auth.uid
+        && getAfter(userPath(request.auth.uid)).data.role == 'admin';
+    }
+
+    // ----- Vitrine -----
+    match /cours/{id}     { allow read: if true; allow write: if staff(); }
+    match /moniteurs/{id} { allow read: if true; allow write: if staff(); }
+    match /wiki/{id}      { allow read: if true; allow write: if staff(); }
+    match /comite/{id}    { allow read: if true; allow write: if board(); }
+    match /urgences/{id}  { allow read: if true; allow write: if board(); }
+    // Élevages et portées : le comité gère tout, un·e éleveur·euse seulement ce qu'il ou elle a créé.
+    match /elevages/{id} {
+      allow read: if true;
+      allow create: if board() || (breeder() && mine());
+      allow update: if board() || (breeder() && wasMine() && mine());
+      allow delete: if board();
+    }
+    match /portees/{id} {
+      allow read: if true;
+      allow create: if board() || (breeder() && mine());
+      allow update: if board() || (breeder() && wasMine() && mine());
+      allow delete: if board() || (breeder() && wasMine());
+    }
+
+    // ----- Comptes -----
+    // Pseudo réservé (un document par pseudo) : sert à se connecter avec son pseudo. On peut lire un pseudo précis, pas la liste.
+    match /pseudos/{p} {
+      allow get: if true;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email;
+      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || board());
+    }
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || member());
+      allow list: if member();
+      // Inscription : en attente, ou administrateur si c'est le tout premier compte. Le pseudo doit être réservé dans la même opération.
+      allow create: if signedIn() && request.auth.uid == uid && pseudoOwned(uid)
+        && (request.resource.data.role == 'attente'
+            || (request.resource.data.role == 'admin' && !exists(setupPath()) && getAfter(setupPath()).data.admin == uid));
+      // Chacun modifie son profil (pas son rôle) ; le comité change les rôles (seul un admin touche au rôle administrateur).
+      allow update: if (request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pseudo', 'pk', 'prenom', 'chiens', 'chien', 'photo'])
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['pk']) || pseudoOwned(uid)))
+        || (board() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+            && request.resource.data.role in ['admin', 'comite', 'moniteur', 'eleveur', 'membre', 'adherent', 'attente']
+            && (isAdmin() || (resource.data.role != 'admin' && request.resource.data.role != 'admin')));
+      allow delete: if board() && request.auth.uid != uid && (isAdmin() || resource.data.role != 'admin');
+    }
+
+    // ----- Espace membres -----
+    // Inscription à un cours : une par personne et par cours (identifiant coursId_uid).
+    match /inscriptions/{id} {
+      allow read: if member();
+      allow create: if member() && mine() && id == request.resource.data.cours + '_' + request.auth.uid
+        && exists(/databases/$(database)/documents/cours/$(request.resource.data.cours));
+      allow delete: if signedIn() && (wasMine() || staff());
+    }
+    match /messages/{id} {
+      allow read: if member();
+      allow create: if member() && mine() && request.resource.data.texte is string
+        && request.resource.data.texte.size() > 0 && request.resource.data.texte.size() <= 2000
+        && request.resource.data.pseudo == get(userPath(request.auth.uid)).data.pseudo;
+      allow delete: if signedIn() && (wasMine() || board());
+    }
+  }
+}

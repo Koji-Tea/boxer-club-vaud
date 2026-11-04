@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Boxer Club Vaud</title>
+<meta name="description" content="L’app du Boxer Club Vaud : agenda des cours, moniteurs, chiots, wiki du boxer, tchat des membres et contacts d’urgence.">
+<meta name="theme-color" content="#1A1410">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Boxer Club">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="img/favicon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,800&display=swap">
+<link rel="stylesheet" href="css/app.css">
+<script src="vendor/firebase-app-compat.js"></script>
+<script src="vendor/firebase-auth-compat.js"></script>
+<script src="vendor/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+</head>
+<body>
+<div class="app">
+  <nav class="side" id="side" aria-label="Menu"></nav>
+  <div class="content">
+    <header class="top">
+      <a href="#accueil" aria-label="Accueil"><picture><source srcset="img/logo-blanc.png" media="(prefers-color-scheme: dark)"><img alt="Boxer Club Vaud" src="img/logo-noir.png"></picture></a>
+      <span class="ttl" id="ttl"></span>
+      <a class="iconbtn me" id="topMe" href="#compte" aria-label="Mon compte"></a>
+    </header>
+    <main id="main"><div class="loading"><img alt="" src="img/favicon.png"><span>Le boxer arrive…</span></div></main>
+  </div>
+  <nav class="tabbar" id="tabbar" aria-label="Onglets"></nav>
+</div>
+<div id="sheetRoot"></div>
+<div id="toastRoot" aria-live="polite"></div>
+
+<script src="js/outils.js"></script>
+<script src="js/donnees.js"></script>
+<script src="js/rappels.js"></script>
+<script src="js/vues/vitrine.js"></script>
+<script src="js/vues/cours.js"></script>
+<script src="js/vues/chiots.js"></script>
+<script src="js/vues/wiki.js"></script>
+<script src="js/vues/membres.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
