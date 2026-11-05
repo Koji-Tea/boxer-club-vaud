@@ -145,6 +145,9 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   const gid=await A.evaluate(()=>all('groupes')[0].id);
   await go(E,'#tchat');await E.waitForTimeout(600);await E.click('#grpBtn');await E.click(`[data-join="${gid}"]`);await E.waitForTimeout(1500);
   await E.fill('#chatIn','Coucou les baladeurs');await E.click('#chatForm button');await E.waitForTimeout(1500);
+  await go(A,'#agenda');await A.waitForTimeout(500);
+  await E.fill('#chatIn','Qui vient dimanche ?');await E.click('#chatForm button');await E.waitForTimeout(1500);
+  ok(await A.evaluate(g=>nonLusCanal(g)>0&&tchatNonLus()>0&&!!document.querySelector('.side a[href="#tchat"] .nonlu'),gid),'nouveau message de groupe signalé (rond non lu)');
   await go(A,'#tchat/'+gid);await A.waitForTimeout(1500);ok((await A.textContent('#chatList')).includes('Coucou les baladeurs'),'message de groupe reçu');
   r=await B.evaluate(async g=>{try{await firebase.firestore().collection('groupes').doc(g).collection('msgs').get();return 'ok'}catch(e){return String(e.message).toLowerCase()}},gid);
   ok(r!=='ok','hors du groupe : fil illisible');

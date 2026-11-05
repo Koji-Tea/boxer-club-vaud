@@ -302,3 +302,9 @@ img.qr-big{display:block;width:100%;max-width:340px;margin:8px auto 14px;backgro
 .card.grp{align-items:center;gap:10px}
 @media (min-width:900px){.chat.dm{height:calc(100vh - 110px)}.chat.grp{height:calc(100vh - 210px)}}
 .bub .pre{font-weight:600;opacity:.75}
+
+/* Rond « non lu » (messages, notifications, tchat) */
+.nonlu{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#D93025;color:#fff;font-style:normal;font-size:.72rem;font-weight:800;line-height:1;vertical-align:middle}
+.top .env .nonlu{position:absolute;top:1px;right:-2px;min-width:18px;height:18px;padding:0 4px;font-size:.68rem}
+.tab-ico{position:relative;display:inline-flex}
+.nonlu.dot-only{position:absolute;top:-2px;right:-5px;min-width:10px;width:10px;height:10px;padding:0;border:2px solid var(--surface)}

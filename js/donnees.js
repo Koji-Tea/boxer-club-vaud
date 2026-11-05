@@ -267,7 +267,8 @@ function listenMembers(){
   sub("users",DB.collection("users"));
   sub("inscriptions",DB.collection("inscriptions"));
   sub("messages",DB.collection("messages").orderBy("at","desc").limit(200));
-  sub("groupes",DB.collection("groupes"));
+  // Groupes : on écoute aussi le fil des groupes rejoints, pour signaler les nouveaux messages.
+  unsubs.push(DB.collection("groupes").onSnapshot(s=>{S.groupes=new Map(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));all("groupes").filter(dansGroupe).forEach(g=>watchGroupe(g.id));changed()},e=>console.warn("groupes",e.code)));
   sub("notifs",DB.collection("notifs").where("to","==",ME.uid));
   sub("convs",DB.collection("convs").where("p","array-contains",ME.uid));
   if(isComite()){
@@ -455,6 +456,17 @@ async function rejoindreGroupe(g,on){
 }
 const sendGroupe=(gid,texte)=>{const o={id:uid(),g:gid,uid:ME.uid,pseudo:ME.pseudo||"",texte:texte.slice(0,2000),at:new Date().toISOString()};return addAt("gmsgs",`groupes/${gid}/msgs/${o.id}`,o)};
 const delGroupeMsg=m=>delAt("gmsgs",`groupes/${m.g}/msgs/${m.id}`,m.id);
+
+/* ---------- Messages non lus du tchat (mémorisé sur cet appareil) ---------- */
+function vuLe(k){const key="bcv-vu-"+k;let v=ls(key);if(v===null){v=new Date().toISOString();ls(key,v)}return v}
+const marquerVu=(k,at)=>{const v=at||new Date().toISOString();if(String(v)>String(ls("bcv-vu-"+k)||""))ls("bcv-vu-"+k,v)};
+function nonLusCanal(k){
+  if(!isMember())return 0;const vu=vuLe(k||"general");
+  return(k?all("gmsgs").filter(x=>x.g===k):all("messages")).filter(x=>x.uid!==ME.uid&&String(x.at)>vu).length;
+}
+const tchatNonLus=()=>!isMember()?0:nonLusCanal("")+all("groupes").filter(dansGroupe).reduce((a,g)=>a+nonLusCanal(g.id),0);
+// Rond de couleur « non lu », avec le nombre.
+const dotNL=n=>n?` <em class="nonlu" aria-label="${n} non lu${n>1?"s":""}">${n>99?"99+":n}</em>`:"";
 
 /* ---------- Messages privés ---------- */
 const convId=(a,b)=>[a,b].sort().join("_");

@@ -29,13 +29,13 @@ function navHTML(){
   const me=ME?`<a class="nav-me" href="#compte">${avatar(ME.pseudo||"?",ME.photo,"sm")}<span><b>${esc(ME.pseudo||"Mon compte")}</b><small>${esc(ROLES[ME.role]?ROLES[ME.role].l:"")}</small></span></a>`
     :`<a class="btn primary block" href="#compte">${ico("user")} Se connecter / s’inscrire</a>`;
   return`<a class="nav-logo" href="#accueil" aria-label="Accueil"><img class="logo-img" alt="Boxer Club Vaud" src="img/logo-noir.png"></a>
-    ${isMember()?`<a href="#boite" class="${ROUTE==="boite"?"on":""}">${ico("mail")}<span>Messages & notifications${nbNonLus()?` <em class="pill">${nbNonLus()}</em>`:""}</span></a>`:""}
-    ${navItems().map(([k,l,i])=>`<a href="#${k}" class="${ROUTE===k?"on":""}">${ico(i)}<span>${l}${navPill(k)}</span>${k==="tchat"&&!isMember()?ico("shield","lock"):""}</a>`).join("")}
+    ${isMember()?`<a href="#boite" class="${ROUTE==="boite"?"on":""}">${ico("mail")}<span>Messages & notifications${dotNL(nbNonLus())}</span></a>`:""}
+    ${navItems().map(([k,l,i])=>`<a href="#${k}" class="${ROUTE===k?"on":""}">${ico(i)}<span>${l}${k==="tchat"?dotNL(tchatNonLus()):navPill(k)}</span>${k==="tchat"&&!isMember()?ico("shield","lock"):""}</a>`).join("")}
     <div class="nav-foot">${me}${installBtn()}${MODE==="local"?`<p class="small muted">Mode essai : les données restent dans ce navigateur.</p>`:""}</div>`;
 }
 const pendingCount=()=>isAdhEdit()?all("users").filter(u=>u.role==="attente").length:0;
 function tabsHTML(){
-  return TABS.map(k=>{const[,l,i]=NAV.find(n=>n[0]===k);return`<a href="#${k}" class="${ROUTE===k?"on":""}">${ico(i)}<span>${l.split(" ")[0]}</span></a>`}).join("")
+  return TABS.map(k=>{const[,l,i]=NAV.find(n=>n[0]===k);return`<a href="#${k}" class="${ROUTE===k?"on":""}"><span class="tab-ico">${ico(i)}${k==="tchat"&&tchatNonLus()?`<em class="nonlu dot-only"></em>`:""}</span><span>${l.split(" ")[0]}</span></a>`}).join("")
     +`<button id="moreBtn" class="${TABS.includes(ROUTE)?"":"on"}">${ico("more")}<span>Plus</span></button>`;
 }
 function openMore(){
@@ -79,7 +79,7 @@ function render(){
   $("#side").innerHTML=navHTML();$("#tabbar").innerHTML=tabsHTML();
   $("#ttl").textContent=ROUTE==="accueil"?"":v.t;
   $("#topMe").innerHTML=ME?avatar(ME.pseudo||"?",ME.photo,"sm"):ico("user");
-  const env=$("#topEnv"),nl=nbNonLus();env.hidden=!isMember();env.innerHTML=ico("mail")+(nl?`<em class="pill">${nl}</em>`:"");env.classList.toggle("on",ROUTE==="boite");
+  const env=$("#topEnv"),nl=nbNonLus();env.hidden=!isMember();env.innerHTML=ico("mail")+(nl?`<em class="nonlu">${nl>99?"99+":nl}</em>`:"");env.classList.toggle("on",ROUTE==="boite");
   $("#moreBtn").onclick=openMore;bindInstall($("#side"));
   // On ne redessine pas un formulaire en cours de saisie (le tchat garde aussi son brouillon).
   const main=$("#main");const a=document.activeElement;const same=main.dataset.v===ROUTE+ARG;

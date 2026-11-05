@@ -25,12 +25,12 @@ function fillChat(box,list,first,nameOf,canDel,onDel,empty){
 
 /* ---------- Tchat : fil général et groupes de discussion ---------- */
 const byNom=(a,b)=>String(a.nom).localeCompare(b.nom);
-const tchatForme=()=>{const g=ARG&&get("groupes",ARG);return[isMember(),ARG,!!g,g&&dansGroupe(g),all("groupes").filter(dansGroupe).map(x=>x.id+x.nom).join(),all("groupes").length].join("|")};
+const tchatForme=()=>{const g=ARG&&get("groupes",ARG);return[isMember(),ARG,isMember()&&all("groupes").filter(dansGroupe).map(x=>x.id===ARG?0:nonLusCanal(x.id)).join()+(ARG?nonLusCanal(""):0),!!g,g&&dansGroupe(g),all("groupes").filter(dansGroupe).map(x=>x.id+x.nom).join(),all("groupes").length].join("|")};
 VIEWS.tchat={t:"Tchat des membres",r(){
   const lock=membersOnly("Le tchat");if(lock)return lock;
   const g=ARG&&get("groupes",ARG);
   const mine=all("groupes").filter(dansGroupe).sort(byNom),autres=all("groupes").length-mine.length;
-  const bar=`<div class="row between wrap chat-top"><div class="seg">${[["","Général",!g],...mine.map(x=>[x.id,x.nom,g&&g.id===x.id])].map(([id,l,on])=>`<a href="#tchat${id?"/"+esc(id):""}" class="${on?"on":""}">${esc(l)}</a>`).join("")}</div>
+  const bar=`<div class="row between wrap chat-top"><div class="seg">${[["","Général",!g],...mine.map(x=>[x.id,x.nom,g&&g.id===x.id])].map(([id,l,on])=>`<a href="#tchat${id?"/"+esc(id):""}" class="${on?"on":""}">${esc(l)}${on?"":dotNL(nonLusCanal(id))}</a>`).join("")}</div>
     <button class="btn sm" id="grpBtn">${ico("group")} Groupes${autres?` <em class="pill">${autres}</em>`:""}</button></div>`;
   if(ARG&&!g)return bar+`<p class="muted">Ce groupe n’existe plus.</p>`;
   if(g&&!dansGroupe(g))return bar+`<div class="card lock">${ico("group")}<h3>${esc(g.nom)}</h3>${g.desc?`<p>${rich(g.desc)}</p>`:""}<p class="small muted">${(g.membres||[]).length} membre(s)</p><button class="btn primary" id="joinG">Rejoindre le groupe</button></div>`;
@@ -56,6 +56,8 @@ VIEWS.tchat={t:"Tchat des membres",r(){
 },fill(m,first){
   const g=ARG&&get("groupes",ARG);
   const list=(g?all("gmsgs").filter(x=>x.g===g.id):all("messages")).sort((a,b)=>String(a.at).localeCompare(b.at));
+  // Fil affiché : ses messages sont lus.
+  if(document.visibilityState==="visible")marquerVu(g?g.id:"general",list.length?list[list.length-1].at:"");
   fillChat($("#chatList",m),list,first,()=>"",x=>x.uid===ME.uid||isComite(),x=>g?delGroupeMsg(x):del("messages",x.id),g?"Aucun message dans ce groupe. Lance la discussion !":"Aucun message pour l’instant. Lance la discussion !");
 }};
 function groupesSheet(){
