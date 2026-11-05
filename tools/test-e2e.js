@@ -50,20 +50,12 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   await go(B,'#compte');await B.click('#addDog');await B.fill('#f_nom','Rex');await B.click('.sheet button.primary');await B.waitForTimeout(1200);
   ok((await B.textContent('.dogs')).includes('Rex'),'ajout d’un chien au profil');
 
-  // Membre : ajoute des cours et ne modifie que les siens
-  r=await tryWrite(B,()=>firebase.firestore().collection('cours').add({titre:'x',uid:firebase.auth().currentUser.uid}));
-  ok(r.includes('permission'),'adhérent ne peut pas ajouter de cours');
+  // Ancien rôle « membre » : mêmes droits qu'un·e adhérent·e (plus d'ajout de cours)
   await go(A,'#reglages');await A.waitForTimeout(500);
   const bUid=await B.evaluate(()=>firebase.auth().currentUser.uid);
-  await A.selectOption(`[data-role-of="${bUid}"]`,'membre');await A.waitForTimeout(1500);
-  await go(B,'#agenda');await B.waitForTimeout(500);
-  await B.click('#addCours');await B.fill('#f_titre','Cours de Bob');await B.fill('#f_date',ds);await B.fill('#f_debut','14:00');
-  await B.click('.sheet button.primary');await B.waitForTimeout(1500);
-  ok((await B.textContent('.v-agenda')).includes('Cours de Bob'),'membre ajoute un cours');
-  r=await tryWrite(B,async()=>{const s=await firebase.firestore().collection('cours').where('titre','==','Cours test').get();return s.docs[0].ref.update({titre:'pirate'})});
-  ok(r.includes('permission'),'membre ne modifie pas le cours d’un autre');
-  r=await tryWrite(B,async()=>{const s=await firebase.firestore().collection('cours').where('titre','==','Cours de Bob').get();return s.docs[0].ref.update({titre:'Cours de Bob modifié',uid:firebase.auth().currentUser.uid})});
-  ok(r==='ok','membre modifie son propre cours');
+  await A.evaluate(u=>firebase.firestore().doc('users/'+u).update({role:'membre'}),bUid);await A.waitForTimeout(1200);
+  r=await tryWrite(B,()=>firebase.firestore().collection('cours').add({titre:'x',uid:firebase.auth().currentUser.uid}));
+  ok(r.includes('permission'),'ancien rôle membre ne peut plus ajouter de cours');
   // Éleveur
   await go(A,'#reglages');await A.waitForTimeout(500);
   const bobUid=await B.evaluate(()=>firebase.auth().currentUser.uid);
@@ -81,9 +73,11 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   const D=await mk();await reg(D,'Cleo','cleo@test.ch');
   const dUid=await D.evaluate(()=>firebase.auth().currentUser.uid);
   await go(A,'#reglages');await A.waitForTimeout(800);
-  await A.selectOption(`[data-role-of="${dUid}"]`,'comite').catch(async()=>{await A.click(`[data-ok="${dUid}"][data-r=membre]`);await A.waitForTimeout(1200);await A.selectOption(`[data-role-of="${dUid}"]`,'comite')});
+  await A.click(`[data-ok="${dUid}"][data-r=adherent]`);await A.waitForTimeout(1200);await A.selectOption(`[data-role-of="${dUid}"]`,'comite');
   await A.waitForTimeout(1200);
-  r=await tryWrite(D,()=>firebase.firestore().collection('cotisations').get());ok(r.includes('permission'),'comité ne voit pas les cotisations');
+  r=await tryWrite(D,()=>firebase.firestore().collection('cotisations').get());ok(r==='ok','comité voit les cotisations');
+  r=await tryWrite(D,()=>firebase.firestore().collection('cours').add({titre:'x'}));ok(r.includes('permission'),'membre du comité ne modifie pas l’agenda');
+  r=await tryWrite(D,()=>firebase.firestore().collection('ecritures').add({libelle:'x',montant:1}));ok(r.includes('permission'),'membre du comité ne modifie pas la comptabilité');
   r=await tryWrite(D,()=>firebase.firestore().doc('cotisations/x').set({paye:{}}));ok(r.includes('permission'),'comité ne coche pas les cotisations');
   const bU=bUid;
   r=await D.evaluate(async u=>{try{await firebase.firestore().doc('users/'+u).update({role:'caissier'});return 'ok'}catch(e){return String(e.message).toLowerCase()}},bU);
@@ -106,12 +100,64 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   await go(A,'#club');await A.waitForTimeout(600);
   ok(!!(await A.$(`.card.com [data-role-of="${dUid}"]`)),'rôle modifiable sur la carte du comité');
   await go(A,'#club/adherents');await A.waitForTimeout(600);ok(!(await A.$('[data-role-of]')),'plus de choix de rôle dans les adhérents');
-  r=await D.evaluate(async()=>{try{const s=await firebase.firestore().collection('cours').where('titre','==','Cours de Bob modifié').get();await s.docs[0].ref.update({annule:true});return 'ok'}catch(e){return e.message}});
+  r=await D.evaluate(async()=>{try{const s=await firebase.firestore().collection('cours').where('titre','==','Cours test').get();await s.docs[0].ref.update({annule:true});return 'ok'}catch(e){return e.message}});
   ok(r==='ok','responsable éducation annule le cours d’un autre');
   r=await D.evaluate(async()=>{try{await firebase.firestore().collection('wiki').add({q:'Q ?',r:'R',cat:'Le boxer'});return 'ok'}catch(e){return e.message}});
   ok(r==='ok','responsable éducation répond dans le wiki');
-  r=await D.evaluate(async()=>{try{await firebase.firestore().collection('comite').add({nom:'x',role:'y'});return 'ok'}catch(e){return String(e.message).toLowerCase()}});
-  ok(r.includes('permission'),'responsable éducation ne modifie pas le comité');
+  r=await tryWrite(D,()=>firebase.firestore().collection('factures').add({fournisseur:'x'}));ok(r.includes('permission'),'responsable éducation ne modifie pas la comptabilité');
+  r=await tryWrite(B,()=>firebase.firestore().collection('cours').add({titre:'x'}));ok(r.includes('permission'),'caissier·ère ne modifie pas l’agenda');
+
+  // Notes de frais : le comité les crée, le/la caissier·ère est prévenu·e, puis les paie
+  await go(D,'#compta/notes');await D.waitForTimeout(800);
+  await D.click('#addNote');await D.fill('#f_motif','Friandises cours');await D.fill('#f_montant','12.50');
+  await D.setInputFiles('[data-addfile=fichiers][multiple]',{name:'ticket.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64')});await D.waitForTimeout(800);
+  await D.click('.sheet button.primary');await D.waitForTimeout(2000);
+  ok((await D.textContent('.v-compta')).includes('Friandises cours'),'note de frais créée avec son ticket');
+  await B.waitForTimeout(800);
+  ok(await B.evaluate(()=>mesNotifs().some(n=>n.titre==='Nouvelle note de frais')),'caissier·ère prévenu·e de la nouvelle note');
+  r=await tryWrite(D,async()=>{const s=await firebase.firestore().collection('notes').get();return s.docs[0].ref.update({payee:true})});
+  ok(r.includes('permission'),'on ne marque pas sa propre note payée');
+  await go(B,'#compta/notes');await B.waitForTimeout(1000);
+  await B.check('[data-notepay]');await B.waitForTimeout(1800);
+  ok(await D.evaluate(()=>mesNotifs().some(n=>n.titre==='Note de frais payée')),'auteur·rice prévenu·e quand la note est payée');
+  ok(await D.evaluate(()=>nbNonLus()>0),'enveloppe : notification non lue');
+  r=await B.evaluate(async()=>{try{const n=all('notes')[0];const f=await getFichier(n.fichiers[0].id);return f&&f.data.slice(0,15)}catch(e){return 'ERR '+e.message}});ok(String(r).startsWith('data:image'),'ticket scanné lisible par le comité');
+
+  // Adhérente : contacts, cotisations et comptabilité invisibles ; groupes et messages privés
+  const E=await mk();await E.goto(U+'#compte/inscription');await E.waitForTimeout(1200);
+  await E.fill('#rPseudo','Emma');await E.fill('#rMail','emma@test.ch');await E.fill('#rPass','secret123');await E.fill('#rTel','079 123 45 67');await E.check('#rBcv');
+  await E.click('#regForm button.primary');await E.waitForTimeout(2500);
+  const eUid=await E.evaluate(()=>firebase.auth().currentUser.uid);
+  await go(A,'#reglages');await A.waitForTimeout(800);await A.click(`[data-ok="${eUid}"]`);await A.waitForTimeout(1500);
+  ok(await A.evaluate(u=>priveDe(u).tel==='079 123 45 67'&&get('users',u).bcv===true,eUid),'téléphone et adhésion BCV visibles par le comité');
+  r=await tryWrite(E,()=>firebase.firestore().collection('prives').get());ok(r.includes('permission'),'adhérente ne voit pas les contacts des autres');
+  r=await tryWrite(E,()=>firebase.firestore().collection('cotisations').get());ok(r.includes('permission'),'adhérente ne voit pas les cotisations des autres');
+  r=await tryWrite(E,()=>firebase.firestore().doc('cotisations/'+firebase.auth().currentUser.uid).get());ok(r==='ok','adhérente voit sa propre cotisation');
+  r=await tryWrite(E,()=>firebase.firestore().collection('notes').get());ok(r.includes('permission'),'adhérente ne voit pas la comptabilité');
+  r=await tryWrite(E,()=>firebase.firestore().collection('cabane').get());ok(r.includes('permission'),'adhérente ne voit pas la cabane');
+  r=await tryWrite(E,()=>firebase.firestore().collection('groupes').add({nom:'x',membres:[]}));ok(r.includes('permission'),'adhérente ne crée pas de groupe');
+  await go(E,'#club/adherents');await E.waitForTimeout(1000);
+  ok(!(await E.textContent('.v-club')).includes('@test.ch')&&!(await E.$('.adh-foot')),'adhérente ne voit ni e-mails ni cotisations');
+  ok(!(await E.$('.side a[href="#compta"]')),'menu sans comptabilité pour l’adhérente');
+  // Groupes
+  await go(A,'#tchat');await A.click('#grpBtn');await A.click('#newG');await A.fill('#f_nom','Balades');await A.click('.sheet button.primary');await A.waitForTimeout(1500);
+  const gid=await A.evaluate(()=>all('groupes')[0].id);
+  await go(E,'#tchat');await E.waitForTimeout(600);await E.click('#grpBtn');await E.click(`[data-join="${gid}"]`);await E.waitForTimeout(1500);
+  await E.fill('#chatIn','Coucou les baladeurs');await E.click('#chatForm button');await E.waitForTimeout(1500);
+  await go(A,'#tchat/'+gid);await A.waitForTimeout(1500);ok((await A.textContent('#chatList')).includes('Coucou les baladeurs'),'message de groupe reçu');
+  r=await B.evaluate(async g=>{try{await firebase.firestore().collection('groupes').doc(g).collection('msgs').get();return 'ok'}catch(e){return String(e.message).toLowerCase()}},gid);
+  ok(r!=='ok','hors du groupe : fil illisible');
+  r=await D.evaluate(async([g,u])=>{try{await firebase.firestore().doc('groupes/'+g).update({membres:firebase.firestore.FieldValue.arrayUnion(u)});return 'ok'}catch(e){return String(e.message).toLowerCase()}},[gid,bUid]);
+  ok(r==='ok','le comité gère les membres d’un groupe');
+  r=await E.evaluate(async([g,u])=>{try{await firebase.firestore().doc('groupes/'+g).update({membres:firebase.firestore.FieldValue.arrayRemove(u)});return 'ok'}catch(e){return String(e.message).toLowerCase()}},[gid,bUid]);
+  ok(r.includes('permission'),'on ne retire pas quelqu’un d’autre d’un groupe');
+  // Messages privés
+  await go(E,'#boite/m/'+dUid);await E.waitForTimeout(800);await E.fill('#dmIn','Bonjour Cleo');await E.click('#dmForm button');await E.waitForTimeout(1500);
+  await D.waitForTimeout(500);ok(await D.evaluate(()=>all('convs').some(convNonLue)),'message privé reçu (non lu)');
+  await go(D,'#boite/m/'+eUid);await D.waitForTimeout(1500);ok((await D.textContent('#dmList')).includes('Bonjour Cleo'),'message privé affiché');
+  ok(await D.evaluate(()=>!all('convs').some(convNonLue)),'message privé marqué lu');
+  r=await B.evaluate(async c=>{try{await firebase.firestore().collection('convs').doc(c).collection('msgs').get();return 'ok'}catch(e){return String(e.message).toLowerCase()}},[dUid,eUid].sort().join('_'));
+  ok(r!=='ok','message privé illisible par un tiers');
   // Connexion par pseudo
   await B.click('[href="#compte"]');await go(B,'#compte');await B.click('#out');await B.waitForTimeout(1000);
   await go(B,'#compte');await B.fill('#lId','bob');await B.fill('#lPass','secret123');await B.click('#logForm button.primary');await B.waitForTimeout(2000);
@@ -119,7 +165,7 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
 
   // Visiteur
   const C=await mk();await C.goto(U+'#agenda');await C.waitForTimeout(1500);
-  ok((await C.$$('[data-cours]')).length===3,'visiteur voit l’agenda');
+  ok((await C.$$('[data-cours]')).length===2,'visiteur voit l’agenda');
   r=await tryWrite(C,()=>firebase.firestore().collection('users').get());ok(r.includes('permission'),'visiteur ne lit pas les comptes');
   r=await tryWrite(C,()=>firebase.firestore().collection('messages').get());ok(r.includes('permission'),'visiteur ne lit pas le tchat');
   r=await tryWrite(C,()=>firebase.firestore().collection('pseudos').get());ok(r.includes('permission'),'visiteur ne liste pas les pseudos');

@@ -1,12 +1,20 @@
 "use strict";
 /* Navigation : barre latérale sur ordinateur, barre d'onglets + menu « Plus » sur téléphone.
    Chaque écran est déclaré dans VIEWS (fichiers js/vues/*.js) : {t:titre, i:icône, r(main):affichage}. */
+// [route, libellé, icône, visible pour…] : la comptabilité, la cabane et les réglages ne s'affichent qu'au comité.
 const NAV=[
-  ["accueil","Accueil","home"],["agenda","Agenda des cours","cal"],["moniteurs","Moniteurs","coach"],["chiots","Chiots & portées","paw"],
-  ["wiki","Wiki du boxer","book"],["club","Comité & adhérents","club"],["acces","Plan d’accès","map"],["tchat","Tchat des membres","chat"],
-  ["urgences","Contacts d’urgence","sos"],["soutenir","Soutenir le club","heart"],
+  ["accueil","Accueil","home"],["agenda","Agenda des cours","cal"],["club","Comité & adhérents","club"],["tchat","Tchat des membres","chat"],
+  ["moniteurs","Moniteurs","coach"],["chiots","Chiots & portées","paw"],["compta","Comptabilité","coins",()=>isComite()],["cabane","Gestion cabane","cabin",()=>isComite()],
+  ["wiki","Wiki du boxer","book"],["urgences","Contacts d’urgence","sos"],["acces","Plan d’accès","map"],["soutenir","Soutenir le club","heart"],
+  ["reglages","Réglages","shield",()=>isComite()],
 ];
-const TABS=["accueil","agenda","tchat","urgences"];
+const navItems=()=>NAV.filter(n=>!n[3]||n[3]());
+const TABS=["accueil","agenda","club","tchat"];
+// Pastille à côté d'une rubrique : comptes à valider, notes de frais à payer, échéances de la cabane.
+function navPill(k){
+  const n=k==="reglages"?pendingCount():k==="compta"&&isComptaEdit()?all("notes").filter(x=>!x.payee).length:k==="cabane"?cabaneAlertes().length:0;
+  return n?` <em class="pill">${n}</em>`:"";
+}
 let ROUTE="accueil",ARG="";
 function route(){
   const h=decodeURIComponent(location.hash.slice(1)||"accueil");const[r,...a]=h.split("/");
@@ -21,20 +29,19 @@ function navHTML(){
   const me=ME?`<a class="nav-me" href="#compte">${avatar(ME.pseudo||"?",ME.photo,"sm")}<span><b>${esc(ME.pseudo||"Mon compte")}</b><small>${esc(ROLES[ME.role]?ROLES[ME.role].l:"")}</small></span></a>`
     :`<a class="btn primary block" href="#compte">${ico("user")} Se connecter / s’inscrire</a>`;
   return`<a class="nav-logo" href="#accueil" aria-label="Accueil"><img class="logo-img" alt="Boxer Club Vaud" src="img/logo-noir.png"></a>
-    ${NAV.map(([k,l,i])=>`<a href="#${k}" class="${ROUTE===k?"on":""}">${ico(i)}<span>${l}</span>${k==="tchat"&&!isMember()?ico("shield","lock"):""}</a>`).join("")}
-    ${isBoard()?`<a href="#reglages" class="${ROUTE==="reglages"?"on":""}">${ico("shield")}<span>Réglages${pendingCount()?` <em class="pill">${pendingCount()}</em>`:""}</span></a>`:""}
+    ${isMember()?`<a href="#boite" class="${ROUTE==="boite"?"on":""}">${ico("mail")}<span>Messages & notifications${nbNonLus()?` <em class="pill">${nbNonLus()}</em>`:""}</span></a>`:""}
+    ${navItems().map(([k,l,i])=>`<a href="#${k}" class="${ROUTE===k?"on":""}">${ico(i)}<span>${l}${navPill(k)}</span>${k==="tchat"&&!isMember()?ico("shield","lock"):""}</a>`).join("")}
     <div class="nav-foot">${me}${installBtn()}${MODE==="local"?`<p class="small muted">Mode essai : les données restent dans ce navigateur.</p>`:""}</div>`;
 }
-const pendingCount=()=>isBoard()?all("users").filter(u=>u.role==="attente").length:0;
+const pendingCount=()=>isAdhEdit()?all("users").filter(u=>u.role==="attente").length:0;
 function tabsHTML(){
   return TABS.map(k=>{const[,l,i]=NAV.find(n=>n[0]===k);return`<a href="#${k}" class="${ROUTE===k?"on":""}">${ico(i)}<span>${l.split(" ")[0]}</span></a>`}).join("")
     +`<button id="moreBtn" class="${TABS.includes(ROUTE)?"":"on"}">${ico("more")}<span>Plus</span></button>`;
 }
 function openMore(){
-  const items=NAV.filter(n=>!TABS.includes(n[0]));
-  if(isBoard())items.push(["reglages","Réglages","shield"]);
+  const items=navItems().filter(n=>!TABS.includes(n[0]));
   items.push(["compte",ME?"Mon compte":"Se connecter","user"]);
-  const s=sheet("Menu",`<div class="menu-grid">${items.map(([k,l,i])=>`<a href="#${k}" class="tile">${ico(i)}<span>${l}</span></a>`).join("")}</div>${installBtn()}`);
+  const s=sheet("Menu",`<div class="menu-grid">${items.map(([k,l,i])=>`<a href="#${k}" class="tile">${ico(i)}<span>${l}${navPill(k)}</span></a>`).join("")}</div>${installBtn()}`);
   bindInstall(s);
 }
 
@@ -72,6 +79,7 @@ function render(){
   $("#side").innerHTML=navHTML();$("#tabbar").innerHTML=tabsHTML();
   $("#ttl").textContent=ROUTE==="accueil"?"":v.t;
   $("#topMe").innerHTML=ME?avatar(ME.pseudo||"?",ME.photo,"sm"):ico("user");
+  const env=$("#topEnv"),nl=nbNonLus();env.hidden=!isMember();env.innerHTML=ico("mail")+(nl?`<em class="pill">${nl}</em>`:"");env.classList.toggle("on",ROUTE==="boite");
   $("#moreBtn").onclick=openMore;bindInstall($("#side"));
   // On ne redessine pas un formulaire en cours de saisie (le tchat garde aussi son brouillon).
   const main=$("#main");const a=document.activeElement;const same=main.dataset.v===ROUTE+ARG;
@@ -83,6 +91,9 @@ function render(){
   if(v.bind)v.bind(main);
   bindInstall(main);
 }
+// Redessine l'écran même si un champ a le focus (changement d'année, de filtre…).
+function rerender(){$("#main").dataset.v="";render()}
+const comiteOnly=()=>`<div class="card lock">${ico("shield")}<h3>Réservé au comité</h3><p>Cette rubrique n’est visible que par les membres du comité.</p></div>`;
 // Bloc affiché aux visiteurs sur les pages réservées aux membres.
 function membersOnly(what){
   if(isMember())return"";
@@ -93,4 +104,10 @@ function membersOnly(what){
 
 /* ---------- Démarrage ---------- */
 if("serviceWorker" in navigator&&location.protocol==="https:"&&window.top===window)navigator.serviceWorker.register("sw.js").catch(()=>{});
+function effacerNotifsSysteme(){
+  try{navigator.clearAppBadge&&navigator.clearAppBadge().catch(()=>{})}catch(e){}
+  if(navigator.serviceWorker)navigator.serviceWorker.getRegistration().then(r=>r&&r.getNotifications().then(l=>l.forEach(n=>n.close()))).catch(()=>{});
+}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)effacerNotifsSysteme()});
+effacerNotifsSysteme();
 initStore().then(()=>{route();setTimeout(checkRappels,1500)});

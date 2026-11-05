@@ -29,7 +29,7 @@ async function askNotif(){
   if(!notifSupported()){toast("Ce navigateur ne gère pas les notifications. Sur iPhone, installe d’abord l’app sur l’écran d’accueil.","bad");return false}
   const p=await Notification.requestPermission();
   if(p!=="granted"){toast("Notifications refusées. Tu peux les réactiver dans les réglages du navigateur.","bad");return false}
-  ls(RAPPEL_KEY+"-on","1");showNotif("Rappels activés 🐾","Tu seras prévenu·e avant tes cours.");return true;
+  ls(RAPPEL_KEY+"-on","1");toast("Rappels activés 🐾 Tu seras prévenu·e avant tes cours.");return true;
 }
 async function showNotif(title,body){
   try{const r=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();

@@ -1,35 +1,86 @@
 "use strict";
 /* Espace membres : tchat, compte (connexion, inscription, fiche chien, rappels) et réglages du comité. */
 
-/* ---------- Tchat ---------- */
-VIEWS.tchat={t:"Tchat des membres",r(){
-  const lock=membersOnly("Le tchat");if(lock)return lock;
-  return`<div class="chat"><div id="chatList" class="chat-list" aria-live="polite"></div>
-    <form id="chatForm" class="chat-form"><textarea id="chatIn" rows="1" maxlength="2000" placeholder="Écris un message…" aria-label="Message"></textarea><button class="btn primary" aria-label="Envoyer">${ico("send")}</button></form>
-    <p class="small muted center">Visible uniquement par les membres et adhérent·es validé·es. Restons bienveillants 🐾</p></div>`;
-},bind(m){
-  if(!isMember())return;
-  const f=$("#chatForm",m),inp=$("#chatIn",m);
-  inp.value=ls("bcv-chat-draft")||"";
+/* ---------- Fil de discussion (tchat général, groupes, messages privés) ---------- */
+function bindChatForm(m,formId,inId,draftKey,send){
+  const f=$("#"+formId,m),inp=$("#"+inId,m);
+  inp.value=ls(draftKey)||"";
   const grow=()=>{inp.style.height="auto";inp.style.height=Math.min(140,inp.scrollHeight)+"px"};
-  inp.oninput=()=>{ls("bcv-chat-draft",inp.value);grow()};
+  inp.oninput=()=>{ls(draftKey,inp.value);grow()};
   inp.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey&&matchMedia("(pointer:fine)").matches){e.preventDefault();f.requestSubmit()}};
-  f.onsubmit=e=>{e.preventDefault();const t=inp.value.trim();if(!t)return;sendMessage(t);inp.value="";ls("bcv-chat-draft",null);grow();inp.focus()};
-  this.fill(m,true);
-},update(m){
-  if(!!$("#chatList",m)!==isMember()){$(".view",m).innerHTML=this.r();this.bind(m);return}
-  if(isMember())this.fill(m,false);
-},fill(m,first){
-  const box=$("#chatList",m);const atBottom=first||box.scrollHeight-box.scrollTop-box.clientHeight<80;
-  const list=all("messages").sort((a,b)=>String(a.at).localeCompare(b.at));let prevDay="";
+  f.onsubmit=e=>{e.preventDefault();const t=inp.value.trim();if(!t)return;send(t);inp.value="";ls(draftKey,null);grow();inp.focus()};
+}
+function fillChat(box,list,first,nameOf,canDel,onDel,empty){
+  if(!box)return;
+  const atBottom=first||box.scrollHeight-box.scrollTop-box.clientHeight<80;let prevDay="";
   box.innerHTML=list.length?list.map(x=>{
     const d=isoDay(new Date(x.at));const sep=d!==prevDay?`<div class="day">${esc(fmtDay(d))}</div>`:"";prevDay=d;
-    const mine=x.uid===ME.uid;const u=get("users",x.uid);
-    return`${sep}<div class="msg ${mine?"me":""}">${mine?"":avatar(x.pseudo,u&&u.photo,"sm")}<div class="bub">${mine?"":`<b>${esc(x.pseudo)}</b>`}<p>${rich(x.texte)}</p><small>${esc(fmtAgo(x.at))}${mine||isBoard()?` · <button class="lnk" data-delmsg="${esc(x.id)}">supprimer</button>`:""}</small></div></div>`;
-  }).join(""):`<p class="muted center">Aucun message pour l’instant. Lance la discussion !</p>`;
-  $$("[data-delmsg]",box).forEach(b=>b.onclick=async()=>{if(await confirmBox("Supprimer ce message ?"))del("messages",b.dataset.delmsg)});
+    const mine=x.uid===ME.uid,u=get("users",x.uid),nom=x.pseudo||nameOf(x);
+    return`${sep}<div class="msg ${mine?"me":""}">${mine?"":avatar(nom,u&&u.photo,"sm")}<div class="bub">${mine?"":`<b>${esc(nom)}</b>`}<p>${rich(x.texte)}</p><small>${esc(fmtAgo(x.at))}${canDel(x)?` · <button class="lnk" data-delmsg="${esc(x.id)}">supprimer</button>`:""}</small></div></div>`;
+  }).join(""):`<p class="muted center">${esc(empty)}</p>`;
+  $$("[data-delmsg]",box).forEach(b=>b.onclick=async()=>{if(await confirmBox("Supprimer ce message ?"))onDel(list.find(x=>x.id===b.dataset.delmsg))});
   if(atBottom)box.scrollTop=box.scrollHeight;
+}
+
+/* ---------- Tchat : fil général et groupes de discussion ---------- */
+const byNom=(a,b)=>String(a.nom).localeCompare(b.nom);
+const tchatForme=()=>{const g=ARG&&get("groupes",ARG);return[isMember(),ARG,!!g,g&&dansGroupe(g),all("groupes").filter(dansGroupe).map(x=>x.id+x.nom).join(),all("groupes").length].join("|")};
+VIEWS.tchat={t:"Tchat des membres",r(){
+  const lock=membersOnly("Le tchat");if(lock)return lock;
+  const g=ARG&&get("groupes",ARG);
+  const mine=all("groupes").filter(dansGroupe).sort(byNom),autres=all("groupes").length-mine.length;
+  const bar=`<div class="row between wrap chat-top"><div class="seg">${[["","Général",!g],...mine.map(x=>[x.id,x.nom,g&&g.id===x.id])].map(([id,l,on])=>`<a href="#tchat${id?"/"+esc(id):""}" class="${on?"on":""}">${esc(l)}</a>`).join("")}</div>
+    <button class="btn sm" id="grpBtn">${ico("group")} Groupes${autres?` <em class="pill">${autres}</em>`:""}</button></div>`;
+  if(ARG&&!g)return bar+`<p class="muted">Ce groupe n’existe plus.</p>`;
+  if(g&&!dansGroupe(g))return bar+`<div class="card lock">${ico("group")}<h3>${esc(g.nom)}</h3>${g.desc?`<p>${rich(g.desc)}</p>`:""}<p class="small muted">${(g.membres||[]).length} membre(s)</p><button class="btn primary" id="joinG">Rejoindre le groupe</button></div>`;
+  return bar+`${g?`<p class="small muted grp-desc">${g.desc?esc(g.desc)+" · ":""}${(g.membres||[]).length} membre(s) · <button class="lnk" id="grpInfo">voir le groupe</button></p>`:""}
+    <div class="chat${g?" grp":""}"><div id="chatList" class="chat-list" aria-live="polite"></div>
+    <form id="chatForm" class="chat-form"><textarea id="chatIn" rows="1" maxlength="2000" placeholder="Écris un message${g?" au groupe":""}…" aria-label="Message"></textarea><button class="btn primary" aria-label="Envoyer">${ico("send")}</button></form>
+    <p class="small muted center">${g?"Visible uniquement par les membres du groupe.":"Visible uniquement par les membres et adhérent·es validé·es."} Restons bienveillants 🐾</p></div>`;
+},bind(m){
+  const v=$(".view",m);if(v)v.dataset.shape=tchatForme();
+  if(!isMember())return;
+  const g=ARG&&get("groupes",ARG);
+  $("#grpBtn",m).onclick=groupesSheet;
+  const j=$("#joinG",m);if(j)j.onclick=()=>rejoindreGroupe(g,true);
+  const gi=$("#grpInfo",m);if(gi)gi.onclick=()=>groupeSheet(g);
+  if(!$("#chatForm",m))return;
+  if(g&&MODE==="cloud")watchGroupe(g.id);
+  bindChatForm(m,"chatForm","chatIn","bcv-chat-draft"+(g?"-"+g.id:""),t=>g?sendGroupe(g.id,t):sendMessage(t));
+  this.fill(m,true);
+},update(m){
+  const v=$(".view",m);
+  if(!v||v.dataset.shape!==tchatForme()){v.innerHTML=this.r();this.bind(m);return}
+  if(isMember())this.fill(m,false);
+},fill(m,first){
+  const g=ARG&&get("groupes",ARG);
+  const list=(g?all("gmsgs").filter(x=>x.g===g.id):all("messages")).sort((a,b)=>String(a.at).localeCompare(b.at));
+  fillChat($("#chatList",m),list,first,()=>"",x=>x.uid===ME.uid||isComite(),x=>g?delGroupeMsg(x):del("messages",x.id),g?"Aucun message dans ce groupe. Lance la discussion !":"Aucun message pour l’instant. Lance la discussion !");
 }};
+function groupesSheet(){
+  const l=all("groupes").sort(byNom);
+  const s=sheet("Groupes de discussion",`<p class="small muted">Rejoins un groupe pour lire et écrire dans son fil, comme un groupe WhatsApp. Le comité crée les groupes.</p>
+    ${isComite()?`<div class="row end">${addBtn("newG","Nouveau groupe")}</div>`:""}
+    ${l.length?`<div class="list">${l.map(g=>`<div class="card row wrap grp">${ico("group")}<span class="grow"><b>${esc(g.nom)}</b><br><span class="small muted">${g.desc?esc(g.desc)+" · ":""}${(g.membres||[]).length} membre(s)</span></span>
+      ${dansGroupe(g)?`<a class="btn sm" href="#tchat/${esc(g.id)}">Ouvrir</a><button class="btn sm ghost" data-quit="${esc(g.id)}">Quitter</button>`:`<button class="btn sm primary" data-join="${esc(g.id)}">Rejoindre</button>`}
+      ${isComite()?editBtn("data-edg",g.id):""}</div>`).join("")}</div>`:`<p class="muted">Aucun groupe pour l’instant.</p>`}`);
+  const b=$("#newG",s);if(b)b.onclick=()=>editGroupe({});
+  $$("[data-join]",s).forEach(x=>x.onclick=async()=>{const g=get("groupes",x.dataset.join);await rejoindreGroupe(g,true);closeSheet();location.hash="#tchat/"+g.id;toast("Bienvenue dans « "+g.nom+" »")});
+  $$("[data-quit]",s).forEach(x=>x.onclick=async()=>{const g=get("groupes",x.dataset.quit);await rejoindreGroupe(g,false);if(ARG===g.id)location.hash="#tchat";groupesSheet()});
+  $$("[data-edg]",s).forEach(x=>x.onclick=()=>editGroupe(get("groupes",x.dataset.edg)));
+}
+function groupeSheet(g){
+  const mem=(g.membres||[]).map(id=>get("users",id)).filter(Boolean).sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo));
+  const s=sheet(g.nom,`${g.desc?`<p>${rich(g.desc)}</p>`:""}<h3>Membres (${mem.length})</h3><div class="chips">${mem.map(u=>`<span class="chip">${avatar(u.pseudo,u.photo,"xs")} ${esc(u.pseudo)}</span>`).join("")}</div>
+    <div class="row wrap end">${isComite()?`<button class="btn ghost" id="edG">${ico("edit")} Modifier</button>`:""}<button class="btn" id="quitG">Quitter le groupe</button></div>`);
+  $("#quitG",s).onclick=async()=>{closeSheet();await rejoindreGroupe(g,false);location.hash="#tchat"};
+  const e=$("#edG",s);if(e)e.onclick=()=>editGroupe(g);
+}
+function editGroupe(o){
+  editSheet(o.id?"Modifier le groupe":"Nouveau groupe",[{k:"nom",l:"Nom du groupe",req:true,ph:"Balades du dimanche, Concours FAC…"},{k:"desc",l:"Description",t:"textarea",rows:2}],o,{
+    save:async v=>{const n=await put("groupes",{...o,...v,membres:o.membres||[ME.uid],uid:o.uid||ME.uid});if(!o.id)setTimeout(()=>location.hash="#tchat/"+n.id,50)},
+    remove:o.id&&(async()=>{closeSheet();await del("groupes",o.id);location.hash="#tchat"})});
+}
 
 /* ---------- Compte ---------- */
 const DOG_FIELDS=[{k:"nom",l:"Nom du chien",req:true,half:true},{k:"sexe",l:"Sexe",t:"select",o:[["M","Mâle"],["F","Femelle"]],half:true},
@@ -43,6 +94,10 @@ VIEWS.compte={t:"Mon compte",r(){
   return`<div class="card profile">${avatar(ME.pseudo,ME.photo,"xl")}<div class="grow"><h2>${esc(ME.pseudo)}</h2><span class="badge r-${esc(ME.role)}">${esc(ROLES[ME.role].l)}</span>
       ${ME.prenom?`<p class="small">${esc(ME.prenom)}</p>`:""}<div class="row wrap"><button class="btn sm" id="editMe">${ico("edit")} Modifier mon profil</button><button class="btn sm ghost" id="out">${ico("out")} Se déconnecter</button></div></div></div>
     ${ME.role==="attente"?`<div class="banner info">${ico("clock")}<div>Ton compte attend la validation du comité. Tu pourras ensuite t’inscrire aux cours et utiliser le tchat.</div></div>`:""}
+    <h2 class="h">Mon adhésion</h2>
+    <div class="card"><p>${[ME.bcv?"Adhérent·e Boxer Club Vaud":"",ME.bcs?"Adhérent·e Boxer Club Suisse":""].filter(Boolean).join(" · ")||`<span class="muted">Adhésion pas encore indiquée (Modifier mon profil).</span>`}</p>
+      ${S.cotisations.has(ME.uid)||isComite()?`<p class="small">Cotisation ${anneeCotis()} : ${cotisPayee(ME.uid)?`<b>payée</b>${cotisDate(ME.uid)?" le "+esc(fmtDayY(cotisDate(ME.uid))):""} ✔`:"pas encore enregistrée par le comité."}</p>`:""}
+      ${CFG.qrAdhesion?`<button class="btn sm" data-qr>${ico("qr")} QR code pour payer mon adhésion</button>`:""}</div>
     <div class="row between"><h2 class="h">Mes chiens</h2><button class="btn sm" id="addDog">${ico("plus")} Ajouter un chien</button></div>
     ${(ME.chiens||[]).length?`<div class="dogs edit">${ME.chiens.map((c,i)=>`<button class="card dog" data-dog="${i}">${avatar(c.nom,c.photo,"lg")}<div class="grow"><b>${esc(c.nom)}</b>
       <div class="small">${[SEXES[c.sexe],c.race,c.naissance?ageFrom(c.naissance):""].filter(Boolean).map(esc).join(" · ")}</div>${c.remarque?`<p class="small">${esc(c.remarque)}</p>`:""}</div>${ico("edit")}</button>`).join("")}</div>`
@@ -65,7 +120,10 @@ VIEWS.compte={t:"Mon compte",r(){
   if(!ME||ME._noProfile){bindAuth(m);return}
   const b=(id,f)=>{const e=$("#"+id,m);if(e)e.onclick=f};
   b("out",()=>logout().then(()=>{location.hash="#accueil";toast("À bientôt !")}));
-  b("editMe",()=>editSheet("Mon profil",[{k:"pseudo",l:"Pseudo",req:true},{k:"prenom",l:"Prénom (visible par les membres)"},{k:"photo",l:"Ma photo",t:"photo"}],{...ME,nom:ME.pseudo},{save:v=>updateProfile(v)}));
+  b("editMe",()=>editSheet("Mon profil",[{k:"pseudo",l:"Pseudo",req:true},{k:"prenom",l:"Prénom (visible par les membres)"},
+    {k:"tel",l:"Téléphone",t:"tel",h:"Visible seulement par le comité, comme ton e-mail."},{k:"photo",l:"Ma photo",t:"photo"},
+    {k:"bcv",l:"Adhérent·e Boxer Club Vaud",t:"check"},{k:"bcs",l:"Adhérent·e Boxer Club Suisse",t:"check"}],{...ME,tel:priveDe(ME.uid).tel||"",nom:ME.pseudo},{save:v=>updateProfile(v)}));
+  bindQR(m);
   const saveDogs=l=>updateProfile({pseudo:ME.pseudo,prenom:ME.prenom,photo:ME.photo,chiens:l});
   b("addDog",()=>editSheet("Nouveau chien",DOG_FIELDS,{sexe:"M"},{save:v=>saveDogs([...(ME.chiens||[]),v])}));
   $$("[data-dog]",m).forEach(x=>x.onclick=()=>{const i=+x.dataset.dog;const d=ME.chiens[i];
@@ -79,9 +137,13 @@ VIEWS.compte={t:"Mon compte",r(){
 function regFields(full=true){
   return`<form id="regForm" class="form">
     <div class="f"><label for="rPseudo">Pseudo de connexion</label><input id="rPseudo" required minlength="3" maxlength="20" autocomplete="username" placeholder="ex. Rocky_et_moi"><small>Visible par les membres. Lettres, chiffres, point, tiret ou souligné.</small></div>
-    ${full?`<div class="f"><label for="rMail">E-mail</label><input id="rMail" type="email" required autocomplete="email"><small>Jamais affiché ; sert à retrouver ton mot de passe.</small></div>
+    ${full?`<div class="f"><label for="rMail">E-mail</label><input id="rMail" type="email" required autocomplete="email"><small>Visible seulement par le comité ; sert aussi à retrouver ton mot de passe.</small></div>
     <div class="f"><label for="rPass">Mot de passe</label><input id="rPass" type="password" required minlength="6" autocomplete="new-password"></div>`:""}
     <div class="f"><label for="rPrenom">Prénom (facultatif)</label><input id="rPrenom" autocomplete="given-name"></div>
+    <div class="f"><label for="rTel">Téléphone (facultatif)</label><input id="rTel" type="tel" autocomplete="tel"><small>Visible seulement par le comité.</small></div>
+    <fieldset class="dogset adh-set"><legend>Adhésion</legend>
+      <label class="chk"><input type="checkbox" id="rBcv"> Adhérent·e Boxer Club Vaud</label>
+      <label class="chk"><input type="checkbox" id="rBcs"> Adhérent·e Boxer Club Suisse</label></fieldset>
     <fieldset class="dogset"><legend>🐾 Ton chien (facultatif)</legend>
       <div class="f half"><label for="dNom">Nom</label><input id="dNom"></div>
       <div class="f half"><label for="dSexe">Sexe</label><select id="dSexe"><option value="M">Mâle</option><option value="F">Femelle</option></select></div>
@@ -124,34 +186,39 @@ function bindAuth(m){
   $("#dPhoto",m).onchange=async e=>{const f=e.target.files[0];if(!f)return;photo=await shrinkImage(f);$("#dPrev",m).outerHTML=`<img class="av lg" id="dPrev" alt="" src="${photo}">`};
   rf.onsubmit=async e=>{e.preventDefault();const err=$("#rErr",m);err.hidden=true;const btn=$("button.primary",rf);btn.disabled=true;
     const v=id=>{const x=$("#"+id,m);return x?x.value.trim():""};
+    const ck=id=>{const x=$("#"+id,m);return!!(x&&x.checked)};const extra={tel:v("rTel"),bcv:ck("rBcv"),bcs:ck("rBcs")};
     const chiens=v("dNom")?[{nom:v("dNom"),sexe:v("dSexe"),naissance:v("dNaiss"),race:v("dRace"),remarque:v("dRem"),photo}]:[];
     try{
-      if(ME&&ME._noProfile){if(!PSEUDO_RE.test(v("rPseudo")))throw new Error("Pseudo invalide : 3 à 20 caractères.");if(await DB.doc("pseudos/"+pseudoKey(v("rPseudo"))).get().then(s=>s.exists))throw new Error("Ce pseudo est déjà pris.");await finishProfile(AUTH.currentUser,{pseudo:v("rPseudo"),prenom:v("rPrenom"),chiens})}
-      else await register({pseudo:v("rPseudo"),email:v("rMail"),pass:$("#rPass",m).value,prenom:v("rPrenom"),chiens});
+      if(ME&&ME._noProfile){if(!PSEUDO_RE.test(v("rPseudo")))throw new Error("Pseudo invalide : 3 à 20 caractères.");if(await DB.doc("pseudos/"+pseudoKey(v("rPseudo"))).get().then(s=>s.exists))throw new Error("Ce pseudo est déjà pris.");await finishProfile(AUTH.currentUser,{pseudo:v("rPseudo"),prenom:v("rPrenom"),chiens,...extra})}
+      else await register({pseudo:v("rPseudo"),email:v("rMail"),pass:$("#rPass",m).value,prenom:v("rPrenom"),chiens,...extra});
       toast(ME.role==="admin"&&MODE==="cloud"?"Bienvenue ! Premier compte : tu es administrateur·rice.":"Compte créé 🐾");location.hash="#compte";
     }catch(x){err.textContent=x.message;err.hidden=false}finally{btn.disabled=false}};
 }
 
 /* ---------- Réglages (comité) ---------- */
 VIEWS.reglages={t:"Réglages",r(){
-  if(!isBoard())return`<p class="muted">Réservé au comité.</p>`;
+  if(!isComite())return comiteOnly();
   const users=all("users").sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo));
   const wait=users.filter(u=>u.role==="attente");
   const empty=["comite","moniteurs","urgences","elevages","wiki"].filter(c=>!S[c].size);
-  return`<h2 class="h">Comptes à valider${wait.length?` <em class="pill">${wait.length}</em>`:""}</h2>
+  return`${isAdhEdit()?`<h2 class="h">Comptes à valider${wait.length?` <em class="pill">${wait.length}</em>`:""}</h2>
     ${wait.length?`<div class="list">${wait.map(u=>`<div class="card row wrap">${avatar(u.pseudo,u.photo)}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?" · "+esc(u.prenom):""}<br><span class="small">${u.chien?"🐾 "+esc(u.chien)+" · ":""}inscrit·e ${esc(fmtAgo(u.at||u.createdAt||new Date().toISOString()))}</span></span>
-      <button class="btn sm primary" data-ok="${esc(u.id)}" data-r="adherent">Adhérent·e</button><button class="btn sm primary" data-ok="${esc(u.id)}" data-r="membre">Membre</button><button class="btn sm ghost" data-see="${esc(u.id)}">Fiche</button><button class="btn sm danger ghost" data-no="${esc(u.id)}">Refuser</button></div>`).join("")}</div>`:`<p class="muted">Aucun compte en attente.</p>`}
+      <button class="btn sm primary" data-ok="${esc(u.id)}" data-r="adherent">Valider (adhérent·e)</button><button class="btn sm ghost" data-see="${esc(u.id)}">Fiche</button><button class="btn sm danger ghost" data-no="${esc(u.id)}">Refuser</button></div>`).join("")}</div>`:`<p class="muted">Aucun compte en attente.</p>`}
     <h2 class="h">Tous les comptes (${users.length})</h2>
     <div class="list">${users.filter(u=>u.role!=="attente").map(u=>`<div class="card row wrap">${avatar(u.pseudo,u.photo,"sm")}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?" · "+esc(u.prenom):""}</span>
       ${roleSelect(u)}
-      ${u.id!==ME.uid&&(isAdmin()||!SENSITIVE.includes(u.role))?`<button class="iconbtn" data-no="${esc(u.id)}" aria-label="Retirer">${ico("trash")}</button>`:""}</div>`).join("")}</div>
-    <details class="card"><summary>Ce que permet chaque rôle</summary>${Object.entries(ROLES).map(([k,r])=>`<p class="small"><b>${r.l}</b> : ${r.d}</p>`).join("")}</details>
+      ${u.id!==ME.uid&&canGiveRole(u.role,"attente")?`<button class="iconbtn" data-no="${esc(u.id)}" aria-label="Retirer">${ico("trash")}</button>`:""}</div>`).join("")}</div>`:""}
+    <details class="card"><summary>Ce que permet chaque rôle</summary>${Object.entries(ROLES).filter(([k,r])=>!r.old).map(([k,r])=>`<p class="small"><b>${r.l}</b> : ${r.d}</p>`).join("")}</details>
+    <h2 class="h">QR code de paiement de l’adhésion</h2>
+    <div class="card row wrap qr-set">${CFG.qrAdhesion?`<img class="qr-prev" alt="QR code de paiement" src="${CFG.qrAdhesion}">`:`<span class="small muted grow">Pas encore de QR code. Ajoute l’image du QR code de paiement : un bouton « Payer mon adhésion » apparaît alors en haut de la liste des adhérents, dans Mon compte et dans Soutenir.</span>`}
+      <label class="btn sm">${ico("qr")} ${CFG.qrAdhesion?"Remplacer":"Ajouter"} l’image<input type="file" accept="image/*" hidden id="qrIn"></label>${CFG.qrAdhesion?`<button class="btn sm ghost" id="qrDel">Retirer</button>`:""}</div>
     <h2 class="h">Textes de l’app</h2>
     <form id="cfgForm" class="form card">
       <div class="f"><label for="cAnn">Annonce en haut de l’accueil (vide = aucune)</label><textarea id="cAnn" rows="2" placeholder="Ex. : pas de cours samedi 12, fête de la cabane !">${esc(CFG.annonce)}</textarea></div>
       <div class="f"><label for="cAcc">Présentation du club</label><textarea id="cAcc" rows="4">${esc(CFG.accueil)}</textarea></div>
       <div class="f"><label for="cPv">Première visite</label><textarea id="cPv" rows="2">${esc(CFG.premiereVisite)}</textarea></div>
       <div class="f"><label for="cTel">Numéro du bouton « Contacter le club »</label><input id="cTel" type="tel" value="${esc(CFG.telClub||"")}"></div>
+      <div class="f"><label for="cCot">Cotisation annuelle Boxer Club Vaud (CHF)</label><input id="cCot" type="number" min="0" value="${esc(montantCotis())}"><small>Sert au calcul des cotisations dans la comptabilité.</small></div>
       <div class="f"><label for="cAx">Plan d’accès : bon à savoir</label><textarea id="cAx" rows="3">${esc(CFG.acces)}</textarea></div>
       <div class="f"><label for="cDet">Boxer en détresse</label><textarea id="cDet" rows="4">${esc(CFG.detresse)}</textarea></div>
       <div class="row end full"><button class="btn primary">Enregistrer les textes</button></div></form>
@@ -162,6 +229,9 @@ VIEWS.reglages={t:"Réglages",r(){
   $$("[data-see]",m).forEach(b=>b.onclick=()=>userSheet(get("users",b.dataset.see)));
   $$("[data-no]",m).forEach(b=>b.onclick=async()=>{const u=get("users",b.dataset.no);if(await confirmBox(`Retirer le compte de ${u.pseudo} ?`,"Retirer"))removeUser(u)});
   bindRoleSelects(m);
-  $("#cfgForm",m).onsubmit=e=>{e.preventDefault();putCfg({annonce:$("#cAnn",m).value.trim(),accueil:$("#cAcc",m).value.trim(),premiereVisite:$("#cPv",m).value.trim(),telClub:$("#cTel",m).value.trim(),acces:$("#cAx",m).value.trim(),detresse:$("#cDet",m).value.trim()});toast("Textes enregistrés")};
+  $("#cfgForm",m).onsubmit=e=>{e.preventDefault();putCfg({annonce:$("#cAnn",m).value.trim(),accueil:$("#cAcc",m).value.trim(),premiereVisite:$("#cPv",m).value.trim(),telClub:$("#cTel",m).value.trim(),cotisation:Number($("#cCot",m).value)||montantCotis(),acces:$("#cAx",m).value.trim(),detresse:$("#cDet",m).value.trim()});toast("Textes enregistrés")};
   const s=$("#seed",m);if(s)s.onclick=async()=>{s.disabled=true;await importSeed();toast("Contenu importé")};
+  // QR code : image gardée nette (1000 px), enregistrée avec les réglages du club.
+  $("#qrIn",m).onchange=async e=>{const f=e.target.files[0];if(!f)return;try{await putCfg({qrAdhesion:await shrinkImage(f,1000,.92)});toast("QR code enregistré");rerender()}catch(x){toast("Image illisible","bad")}};
+  const qd=$("#qrDel",m);if(qd)qd.onclick=async()=>{if(await confirmBox("Retirer le QR code de paiement ?","Retirer")){await putCfg({qrAdhesion:""});rerender()}};
 }};

@@ -56,6 +56,7 @@ VIEWS.soutenir={t:"Soutenir le club",r(){
         <img class="twint" alt="Code QR Twint du Boxer Club Vaud" src="${CLUB.twintImg}" onerror="this.replaceWith(Object.assign(document.createElement('p'),{className:'small muted',textContent:'Le code QR est affiché sur boxerclubvaud.ch.'}))">
         <div class="row wrap">${L(CLUB.site+"#contact","Voir sur le site du club")}</div></div>
       <div class="card"><h3>${ico("club")} Devenir membre</h3><p>Rejoignez le club : cours d’éducation, sorties, entraide et convivialité.</p>
+        ${CFG.qrAdhesion?`<div class="row wrap"><button class="btn primary" data-qr>${ico("qr")} Payer l’adhésion (QR code)</button></div>`:""}
         <div class="row wrap">${L(CLUB.dossier,"Dossier d’inscription (PDF)")}${L(CLUB.statutsBCV,"Statuts BCV")}${L(CLUB.statutsBCS,"Statuts BCS")}</div></div>
       <div class="card"><h3>${ico("paw")} Vêtements et autocollants</h3><p>Portez les couleurs du club : la vente finance ses activités.</p>
         <div class="row wrap">${L(CLUB.prix,"Liste de prix")}${L(CLUB.catalogue,"Catalogue 2025")}${L(CLUB.commande,"Commander")}</div></div>
@@ -63,9 +64,9 @@ VIEWS.soutenir={t:"Soutenir le club",r(){
         <div class="row wrap"><a class="btn" href="tel:0764818925">${ico("phone")} Suzanne Rochat</a></div></div>
       <div class="card"><h3>${ico("user")} Devenir bénévole</h3><p>Coup de main à la cabane, aux événements ou à Boxer en détresse : écrivez au comité.</p>
         <div class="row wrap"><a class="btn" href="mailto:president@boxerclubvaud.ch">${ico("mail")} Écrire au comité</a></div></div>
-      <div class="card"><h3>${ico("ext")} Suivre le club</h3><div class="row wrap">${L(CLUB.site,"boxerclubvaud.ch")}${L(CLUB.facebook,"Facebook")}${L(CLUB.galeries,"Galeries photos")}${L(CLUB.bcs,"Boxer Club Suisse")}</div></div>
+      <div class="card"><h3>${ico("ext")} Suivre le club</h3><div class="row wrap">${L(CLUB.site,"boxerclubvaud.ch")}${L(CLUB.facebook,"Facebook")}${L(CLUB.instagram,"Instagram")}${L(CLUB.galeries,"Galeries photos")}${L(CLUB.bcs,"Boxer Club Suisse")}</div></div>
     </div>`;
-}};
+},bind(m){bindQR(m)}};
 
 /* ---------- Contacts d'urgence ---------- */
 const URG_FIELDS=[{k:"nom",l:"Nom",req:true},{k:"tel",l:"Téléphone",t:"tel"},{k:"cat",l:"Catégorie",t:"select",o:["Chiens","Personnes","Club"]},{k:"desc",l:"Précisions",t:"textarea",rows:2},{k:"ordre",l:"Ordre d’affichage",t:"number",h:"Les plus petits nombres en premier."}];
@@ -94,53 +95,92 @@ VIEWS.club={t:"Comité & adhérents",r(){
     const lie=o.compte&&get("users",o.compte);
     const fields=[...COM_FIELDS];
     // Le comité relie la fiche au compte de la personne dans l'app pour lui donner son rôle (président·e, caissier·ère…).
-    if(isBoard())fields.push(
+    if(isAdhEdit())fields.push(
       {k:"compte",l:"Son compte dans l’app",t:"select",o:[["","— pas encore de compte —"],...all("users").sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo)).map(u=>[u.id,u.pseudo+(u.prenom?" · "+u.prenom:"")])],h:"La personne doit d’abord créer son compte dans l’app (Mon compte › Créer un compte)."},
-      {k:"appRole",l:"Rôle dans l’app",t:"select",o:roleChoices(lie||{}),d:lie?lie.role:"comite",h:"Donne les droits correspondants. Président·e, Caissier·ère et Administrateur·rice : réservé à l’admin."});
+      {k:"appRole",l:"Rôle dans l’app",t:"select",o:roleChoices(lie||{}),d:lie?lie.role:"comite",h:"Donne les droits correspondants. Président·e et Caissier·ère : par l’admin ou le/la président·e seulement."});
     editSheet(o.id?"Modifier":"Nouveau membre du comité",fields,{...o,appRole:lie?lie.role:undefined},{wide:true,
       save:async v=>{const r=v.appRole;delete v.appRole;await put("comite",{...o,...v});
-        const u=v.compte&&get("users",v.compte);if(u&&r&&r!==u.role&&(isAdmin()||(!SENSITIVE.includes(r)&&!SENSITIVE.includes(u.role)))){await setRole(u.id,r);toast("Rôle de "+u.pseudo+" : "+ROLES[r].l)}},
+        const u=v.compte&&get("users",v.compte);if(u&&r&&r!==u.role&&canGiveRole(u.role,r)){await setRole(u.id,r);toast("Rôle de "+u.pseudo+" : "+ROLES[r].l)}},
       remove:o.id&&(()=>del("comite",o.id))});
   };
   const a=$("#addCom",m);if(a)a.onclick=()=>ed({});
   $$("[data-com]",m).forEach(b=>b.onclick=()=>ed(get("comite",b.dataset.com)));
   const q=$("#adhQ",m);if(q)q.oninput=()=>{const t=norm(q.value);$$(".adh",m).forEach(x=>x.hidden=t&&!norm(x.dataset.s).includes(t))};
   $$("[data-user]",m).forEach(b=>b.onclick=()=>userSheet(get("users",b.dataset.user)));
-  bindRoleSelects(m);
-  $$("[data-cotis]",m).forEach(c=>c.onchange=()=>{setCotis(c.dataset.cotis,c.checked);toast(c.checked?"Cotisation notée comme réglée":"Cotisation notée comme non réglée")});
+  bindRoleSelects(m);bindCotis(m);bindQR(m);
+  $$("[data-adhf]",m).forEach(b=>b.onclick=()=>{ls("bcv-adh-f",b.dataset.adhf);rerender()});
 }};
 function comiteHTML(){
   return`<p class="lead">Les membres du comité du Boxer Club Vaud.</p>
     ${canWrite("comite")?`<div class="row end">${addBtn("addCom")}</div>`:""}
-    <div class="people">${all("comite").sort(byOrder).map(p=>{const u=isBoard()&&p.compte&&get("users",p.compte);
+    <div class="people">${all("comite").sort(byOrder).map(p=>{const u=isComite()&&p.compte&&get("users",p.compte);
       return`<div class="card com"><div class="person">${avatar(p.nom,p.photo,"lg")}<div class="grow"><b>${esc(p.nom)}</b><span class="role">${esc(p.role)}</span>
       <div class="small">${p.tel?telLink(p.tel)+"<br>":""}${mailLink(p.email)}</div></div>${canWrite("comite")?editBtn("data-com",p.id):""}</div>
-      ${isBoard()?`<div class="adh-foot">${u?`<span class="small">Compte <b>${esc(u.pseudo)}</b></span><label class="role-lab">Rôle ${roleSelect(u)}</label>`:`<span class="small muted">Pas de compte lié : touche ✎ pour choisir son compte et son rôle.</span>`}</div>`:""}</div>`}).join("")}</div>`;
+      ${isComite()&&(u||isAdhEdit())?`<div class="adh-foot">${u?`<span class="small">Compte <b>${esc(u.pseudo)}</b></span><label class="role-lab">Rôle ${roleSelect(u)}</label>`:`<span class="small muted">Pas de compte lié : touche ✎ pour choisir son compte et son rôle.</span>`}</div>`:""}</div>`}).join("")}</div>`;
 }
-// Liste déroulante du rôle d'un compte (comité) : admin, président·e et caissier·ère ne sont donnés que par un·e admin.
-const roleChoices=u=>Object.keys(ROLES).filter(r=>!SENSITIVE.includes(r)||isAdmin()||u.role===r).map(r=>[r,ROLES[r].l]);
+// Liste déroulante du rôle d'un compte : admin seulement par l'admin, président·e et caissier·ère par l'admin ou le/la président·e.
+const roleChoices=u=>Object.keys(ROLES).filter(r=>r===u.role||(!ROLES[r].old&&canGiveRole(u.role||"attente",r))).map(r=>[r,ROLES[r].l]);
+const roleBadge=u=>`<span class="badge r-${esc(u.role)}">${esc((ROLES[u.role]||{}).l||u.role)}</span>`;
 function roleSelect(u){
-  if(u.id===ME.uid&&!isAdmin())return`<span class="badge r-${esc(u.role)}">${esc(ROLES[u.role].l)}</span>`;
-  const opts=roleChoices(u).map(([r,l])=>`<option value="${r}"${u.role===r?" selected":""}>${l}</option>`).join("");
-  return`<select class="role-sel" data-role-of="${esc(u.id)}" aria-label="Rôle de ${esc(u.pseudo)}"${SENSITIVE.includes(u.role)&&!isAdmin()?" disabled":""}>${opts}</select>`;
+  if(!isAdhEdit()||(u.id===ME.uid&&!isAdmin()))return roleBadge(u);
+  const ch=roleChoices(u);if(ch.length<2)return roleBadge(u);
+  return`<select class="role-sel" data-role-of="${esc(u.id)}" aria-label="Rôle de ${esc(u.pseudo)}">${ch.map(([r,l])=>`<option value="${r}"${u.role===r?" selected":""}>${l}</option>`).join("")}</select>`;
 }
 function bindRoleSelects(m){$$("[data-role-of]",m).forEach(s=>s.onchange=()=>{setRole(s.dataset.roleOf,s.value);toast("Rôle de "+((get("users",s.dataset.roleOf)||{}).pseudo||"")+" : "+ROLES[s.value].l)})}
-function adherentsHTML(){
-  const lock=membersOnly("La liste des adhérents");if(lock)return lock;
-  const list=all("users").filter(u=>MEMBERS.includes(u.role)).sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo));
-  const an=anneeCotis(),fin=isFinance(),nb=fin?list.filter(u=>cotisPayee(u.id)).length:0;
-  return`<p class="muted">${list.length} membre${list.length>1?"s":""} et adhérent·es inscrit·es dans l’app.</p>
-    ${fin?`<div class="banner info cotis">${ico("check")}<div><b>Cotisations ${an} : ${nb} sur ${list.length} réglée${nb>1?"s":""}.</b><br><span class="small">Cette information n’est visible que par l’admin, le/la président·e et le/la caissier·ère.</span></div></div>`:""}
-    <div class="search">${ico("search")}<input id="adhQ" type="search" placeholder="Chercher un pseudo, un prénom, un chien…"></div>
-    <div class="list">${list.map(u=>`<div class="card adh" data-s="${esc([u.pseudo,u.prenom,u.chien].join(" "))}"><button class="adh-main row" data-user="${esc(u.id)}">
-      ${avatar(u.pseudo,u.photo)}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?` <span class="muted">· ${esc(u.prenom)}</span>`:""}<br><span class="small">${u.chien?"🐾 "+esc(u.chien):""}</span></span>
-      <span class="badge r-${esc(u.role)}">${esc(ROLES[u.role].l)}</span></button>
-      ${fin?`<div class="adh-foot">${fin?`<label class="chk"><input type="checkbox" data-cotis="${esc(u.id)}"${cotisPayee(u.id)?" checked":""}> Cotisation ${an} réglée</label>`:""}</div>`:""}</div>`).join("")}</div>`;
+
+/* ---------- Cotisations (coche + date de paiement) ---------- */
+function cotisCtrl(u,an=anneeCotis()){
+  const ok=cotisPayee(u.id,an),dt=cotisDate(u.id,an);
+  if(!isCotisEdit())return`<span class="badge ${ok?"good":"bad"}">${ok?`${ico("check")} Cotisation ${an} payée${dt?" le "+esc(fmtDayY(dt)):""}`:`Cotisation ${an} pas encore payée`}</span>`;
+  return`<label class="chk"><input type="checkbox" data-cotis="${esc(u.id)}" data-an="${an}"${ok?" checked":""}> Cotisation membre Boxer Club Vaud ${an} payée</label>
+    <label class="small cotis-date">le <input type="date" data-cotisdate="${esc(u.id)}" data-an="${an}" value="${esc(dt)}"${ok?"":" disabled"}></label>`;
 }
-// Fiche d'un·e adhérent·e et de ses chiens.
+function bindCotis(m){
+  $$("[data-cotis]",m).forEach(c=>c.onchange=()=>{
+    const d=$(`[data-cotisdate="${c.dataset.cotis}"]`,m);if(d){d.disabled=!c.checked;if(c.checked&&!d.value)d.value=today();if(!c.checked)d.value=""}
+    setCotis(c.dataset.cotis,c.checked,d&&d.value,c.dataset.an);toast(c.checked?"Cotisation notée comme payée":"Cotisation notée comme non payée")});
+  $$("[data-cotisdate]",m).forEach(d=>d.onchange=()=>{if(!d.value)return;setCotis(d.dataset.cotisdate,true,d.value,d.dataset.an);toast("Date de paiement enregistrée")});
+}
+
+/* ---------- QR code de paiement de l'adhésion ---------- */
+function qrSheet(){
+  sheet("Payer mon adhésion",`<p>Cotisation annuelle au Boxer Club Vaud : <b>${chf(montantCotis())}</b>. Scanne ce QR code avec l’app de ta banque, ou télécharge-le pour le garder.</p>
+    <img class="qr-big" alt="QR code de paiement de l’adhésion" src="${CFG.qrAdhesion}">
+    <div class="row end"><a class="btn primary" href="${CFG.qrAdhesion}" download="QR-adhesion-Boxer-Club-Vaud.jpg">${ico("download")} Télécharger le QR code</a></div>`);
+}
+const bindQR=m=>$$("[data-qr]",m).forEach(b=>b.onclick=qrSheet);
+
+/* ---------- Adhérents ----------
+   Tout le monde voit pseudo, prénom et chiens. Le comité voit en plus e-mail, téléphone, adhésions et cotisations. */
+function adherentsHTML(){
+  const qr=CFG.qrAdhesion?`<div class="banner good qr-banner">${ico("qr")}<div class="grow"><b>Payer son adhésion au Boxer Club Vaud</b><br><span class="small">Télécharge le QR code de paiement (cotisation ${chf(montantCotis())} par an).</span></div><button class="btn sm primary" data-qr>${ico("download")} QR code</button></div>`
+    :isComite()?`<p class="small muted">${ico("qr")} Ajoute le QR code de paiement de l’adhésion dans <a href="#reglages">Réglages</a> : un bouton pour le télécharger s’affichera ici.</p>`:"";
+  const lock=membersOnly("La liste des adhérents");if(lock)return qr+lock;
+  const com=isComite(),an=anneeCotis(),f=com?(ls("bcv-adh-f")||"tous"):"tous";
+  const list=all("users").filter(u=>MEMBERS.includes(u.role)).sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo));
+  const nb=com?list.filter(u=>cotisPayee(u.id)).length:0;
+  const shown=list.filter(u=>f==="tous"||(f==="paye")===cotisPayee(u.id));
+  return`${qr}<p class="muted">${list.length} membre${list.length>1?"s":""} et adhérent·es inscrit·es dans l’app.</p>
+    ${com?`<div class="banner info cotis">${ico("check")}<div><b>Cotisations ${an} : ${nb} sur ${list.length} payée${nb>1?"s":""}.</b><br><span class="small">Contacts et cotisations : visibles seulement par le comité.</span></div></div>
+      <div class="seg">${[["tous","Tous"],["paye","Cotisation payée"],["non","Pas encore payée"]].map(([k,l])=>`<button data-adhf="${k}" class="${f===k?"on":""}">${l}</button>`).join("")}</div>`:""}
+    <div class="search">${ico("search")}<input id="adhQ" type="search" placeholder="Chercher un pseudo, un prénom, un chien…"></div>
+    <div class="list">${shown.map(u=>`<div class="card adh" data-s="${esc([u.pseudo,u.prenom,u.chien,com?priveDe(u.id).email:""].join(" "))}">${userRow(u)}${com?`<div class="adh-foot">${cotisCtrl(u,an)}</div>`:""}</div>`).join("")}</div>`;
+}
+function userRow(u){
+  const com=isComite(),p=com?priveDe(u.id):{};
+  return`<button class="adh-main row" data-user="${esc(u.id)}">${avatar(u.pseudo,u.photo)}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?` <span class="muted">· ${esc(u.prenom)}</span>`:""}
+    ${u.chien?`<br><span class="small">🐾 ${esc(u.chien)}</span>`:""}${com&&(p.email||p.tel)?`<br><span class="small muted">${[p.tel,p.email].filter(Boolean).map(esc).join(" · ")}</span>`:""}</span>
+    <span class="badges">${roleBadge(u)}${com&&u.bcv?`<span class="badge">BCV</span>`:""}${com&&u.bcs?`<span class="badge">BCS</span>`:""}</span></button>`;
+}
+// Fiche d'un·e adhérent·e et de ses chiens, avec un bouton pour lui écrire.
 function userSheet(u){
   if(!u)return;
-  sheet(u.pseudo,`<div class="row">${avatar(u.pseudo,u.photo,"lg")}<div><b>${esc(u.pseudo)}</b>${u.prenom?` · ${esc(u.prenom)}`:""}<br><span class="badge r-${esc(u.role)}">${esc((ROLES[u.role]||{}).l||"")}</span></div></div>
+  const com=isComite(),p=com?priveDe(u.id):{},an=anneeCotis(),dt=cotisDate(u.id);
+  const kv=(l,v)=>`<div class="kv"><span>${l}</span><div>${v||"—"}</div></div>`;
+  sheet(u.pseudo,`<div class="row">${avatar(u.pseudo,u.photo,"lg")}<div class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?` · ${esc(u.prenom)}`:""}<br>${roleBadge(u)}</div></div>
+    ${isMember()&&u.id!==ME.uid&&MEMBERS.includes(u.role)?`<div class="row"><a class="btn primary" href="#boite/m/${esc(u.id)}">${ico("mail")} Envoyer un message</a></div>`:""}
+    ${com?`<div class="card soft">${kv("E-mail",mailLink(p.email))}${kv("Téléphone",telLink(p.tel))}${kv("Adhésion",[u.bcv?"Boxer Club Vaud":"",u.bcs?"Boxer Club Suisse":""].filter(Boolean).join(" · "))}
+      ${kv("Cotisation "+an,cotisPayee(u.id)?"Payée"+(dt?" le "+esc(fmtDayY(dt)):""):"Pas encore payée")}<p class="small muted">Visible seulement par le comité.</p></div>`:""}
     ${(u.chiens||[]).length?`<h3>Ses chiens</h3>${dogsHTML(u.chiens)}`:`<p class="muted">Aucun chien renseigné.</p>`}`);
 }
 function dogsHTML(list){

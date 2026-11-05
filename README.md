@@ -7,16 +7,19 @@ C’est une application web installable (PWA) : on l’ouvre dans le navigateur,
 | --- | --- | --- |
 | Accueil | Présentation, annonce du comité, prochains rendez-vous | Tout le monde |
 | Agenda des cours | Cours et événements, inscription, rappel avant le cours, ajout à son agenda | Tout le monde ; inscription pour les membres |
+| Comité & adhérents | Le comité et ses rôles ; la liste des adhérent·es et leurs chiens, bouton pour télécharger le QR code de paiement de l’adhésion | Comité : tout le monde. Adhérents : membres. E-mails, téléphones et cotisations : comité |
+| Tchat | Fil général et groupes de discussion (créés par le comité, rejoints librement) | Membres validés |
 | Moniteurs | Fiche de chaque moniteur·rice : photo, présentation, spécialités, brevets, ses prochains cours | Tout le monde |
 | Chiots & portées | Annonces de naissances par élevage : nombre de chiots, mâles/femelles, disponibles ou réservés, contact de l’élevage | Tout le monde |
+| Comptabilité | Soldes des comptes Club Boxer Vaud et Cabane, cotisations (70 CHF × payées), recettes et dépenses, factures scannées, notes de frais, archives et export par année | Comité seulement |
+| Gestion cabane | Échéances (gaz, extincteur…), inventaire, travaux et frais, fournisseurs, clés, infos pratiques | Comité seulement |
 | Wiki du boxer | Questions / réponses (santé, chaleur, torsion d’estomac, éducation, démarches…), avec recherche | Tout le monde |
-| Comité & adhérents | Le comité avec rôles et contacts ; la liste des adhérent·es et leurs chiens | Comité : tout le monde. Adhérents : membres |
-| Plan d’accès | Adresse, carte, itinéraire Google Maps / Apple Plans / transports publics | Tout le monde |
-| Tchat | Discussion entre membres et adhérent·es | Membres validés |
 | Contacts d’urgence | 144, 117, 118, 112, Tox Info 145, vétérinaire de garde, présidente, Boxer en détresse | Tout le monde |
-| Soutenir | Twint, devenir membre, vêtements du club, Boxer en détresse, bénévolat | Tout le monde |
-| Mon compte | Pseudo, photo, fiches de ses chiens (nom, sexe, âge, photo, castré/stérilisée…), rappels | La personne |
-| Réglages | Valider les nouveaux comptes, donner les rôles, modifier les textes de l’app | Comité |
+| Plan d’accès | Adresse, carte, itinéraire Google Maps / Apple Plans / transports publics | Tout le monde |
+| Soutenir | Twint, devenir membre (QR code d’adhésion), vêtements du club, Boxer en détresse, bénévolat, réseaux | Tout le monde |
+| Réglages | Valider les nouveaux comptes, donner les rôles, QR code d’adhésion, montant de la cotisation, textes de l’app | Comité |
+| Mon compte | Pseudo, photo, téléphone, adhésion BCV / BCS, cotisation, fiches de ses chiens, rappels | La personne |
+| Messages (enveloppe en haut) | Messages privés entre membres et notifications de l’app (note de frais à payer, payée…) | Membres validés |
 
 ## Comptes et rôles
 
@@ -27,14 +30,25 @@ Un nouveau compte est **en attente** : il voit toute la vitrine, mais pas le tch
 | Rôle | Ce qu’il peut faire |
 | --- | --- |
 | Administrateur·rice | Tout, y compris nommer d’autres administrateurs |
-| Président·e / Caissier·ère | Comme le comité, et coche les cotisations réglées dans la liste des adhérents (seuls eux et l’admin voient ces cases). Nommé·es par un·e admin |
-| Comité | Valide les comptes, donne les rôles, modifie tout le contenu |
-| Responsable éducation | Crée, modifie et annule tous les cours, gère les fiches moniteurs et répond aux questions du wiki |
+| Président·e | Accès complet ; nomme le/la caissier·ère et d’autres président·es |
+| Caissier·ère | Comptabilité, notes de frais, cotisations, adhérents. Ne modifie pas les cours ni l’agenda |
+| Responsable élevage | Comité : cours et agenda, élevages et portées, cabane. Ne modifie pas la comptabilité ni les adhérents |
+| Responsable de la cabane | Comité : cabane, cours et agenda. Ne modifie pas la comptabilité ni les adhérents |
+| Responsable membres | Comité : adhérents, comptes et cotisations. Ne modifie pas la comptabilité, les cours ni l’agenda |
+| Membre du comité | Comité : voit la comptabilité et la cabane, gère les adhérents. Ne modifie pas la comptabilité, les cours ni l’agenda |
+| Responsable éducation | Comité : crée, modifie et annule les cours, gère les fiches moniteurs et répond aux questions du wiki |
 | Moniteur·rice | Gère l’agenda des cours, les fiches moniteurs et le wiki |
 | Éleveur·euse | Publie et met à jour ses propres élevages et portées |
-| Membre | Ajoute des cours à l’agenda et modifie les siens, s’inscrit aux cours, tchat, liste des adhérents |
-| Adhérent·e | S’inscrit aux cours, tchat, liste des adhérents |
+| Adhérent·e | S’inscrit aux cours, tchat et groupes, messages privés, liste des adhérents |
 | En attente | Compte créé, pas encore validé |
+
+Tous les membres du comité voient la comptabilité, la cabane, les contacts des adhérents et les cotisations, et créent leurs notes de frais.
+Les cotisations sont cochées par l’admin, le/la président·e, le/la caissier·ère et le/la responsable membres. L’ancien rôle « Membre » a désormais les mêmes droits qu’un·e adhérent·e.
+
+## Fichiers scannés
+
+Factures, tickets et devis sont pris en photo depuis le téléphone (« Scanner avec l’appareil photo ») ou joints en PDF (700 Ko au plus).
+Sans service de stockage payant, chaque fichier est enregistré dans la base Firestore : les photos sont réduites automatiquement pour rester légères.
 
 Les droits sont vérifiés par la base elle-même (`firestore.rules`), pas seulement par l’interface.
 
@@ -82,7 +96,10 @@ js/vues/vitrine.js    accueil, plan d'accès, soutenir, urgences, comité & adh�
 js/vues/cours.js      agenda des cours et moniteurs
 js/vues/chiots.js     portées, chiots et élevages
 js/vues/wiki.js       questions / réponses
-js/vues/membres.js    tchat, mon compte, réglages
+js/vues/membres.js    tchat et groupes, mon compte, réglages
+js/vues/messages.js   messages privés et notifications (enveloppe)
+js/vues/compta.js     comptabilité et notes de frais (comité)
+js/vues/cabane.js     gestion de la cabane (comité)
 js/app.js             navigation et démarrage
 sw.js                 hors connexion (changer la version à chaque mise en ligne)
 tools/                préparation du logo et des icônes, test complet avec les émulateurs Firebase

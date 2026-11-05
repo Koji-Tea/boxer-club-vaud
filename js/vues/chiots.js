@@ -25,7 +25,7 @@ VIEWS.chiots={t:"Chiots & portées",r(){
   $$("[data-chiot]",m).forEach(b=>b.onclick=e=>{e.stopPropagation();const[pid,i]=b.dataset.chiot.split(":");const p=get("portees",pid);
     const ch=[...p.chiots];ch[i]={...ch[i],dispo:!ch[i].dispo};put("portees",{...p,chiots:ch});toast(ch[i].dispo?"Chiot de nouveau disponible":"Chiot marqué réservé")});
   $$("[data-plus]",m).forEach(b=>b.onclick=()=>{const p=get("portees",b.dataset.plus);put("portees",{...p,chiots:(p.chiots||[]).map(c=>({...c,dispo:false}))});toast("Portée marquée « plus disponible »")});
-  const ed=o=>editSheet(o.id?"Modifier l’élevage":"Nouvel élevage",ELEV_FIELDS,o,{wide:true,save:v=>put("elevages",{...o,...v}),remove:o.id&&isBoard()&&(()=>del("elevages",o.id))});
+  const ed=o=>editSheet(o.id?"Modifier l’élevage":"Nouvel élevage",ELEV_FIELDS,o,{wide:true,save:v=>put("elevages",{...o,...v}),remove:o.id&&isComite()&&(()=>del("elevages",o.id))});
   const ae=$("#addElev",m);if(ae)ae.onclick=()=>ed({});
   $$("[data-elev]",m).forEach(b=>b.onclick=()=>ed(get("elevages",b.dataset.elev)));
   const ap=$("#addPortee",m);if(ap)ap.onclick=()=>editPortee({naissance:today(),chiots:[]});

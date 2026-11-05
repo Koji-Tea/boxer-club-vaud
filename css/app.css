@@ -254,3 +254,50 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--fauve);outline-o
 .card.com .person{padding:16px}
 .badge.r-educ{background:var(--fauve);color:#1A1410}
 .badge.r-president,.badge.r-caissier{background:var(--ink);color:var(--bg)}
+
+/* ---------- Comptabilité, cabane, messagerie ---------- */
+.pos{color:var(--good)} .neg{color:var(--bad)}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.badge.r-president,.badge.r-caissier,.badge.r-resp_elevage,.badge.r-resp_cabane,.badge.r-resp_membres{background:var(--ink);color:var(--bg)}
+.badges{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.an-sel{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:14px}
+.an-sel select{width:auto;padding:6px 10px}
+.stats{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.stat{margin:0}.stat b{display:block;font-family:var(--f-display);font-size:1.45rem;margin-top:4px}
+.kv.tot{border-top:2px solid var(--line)}
+.card.arch{align-items:center;gap:12px;cursor:pointer;font:inherit}
+.card.arch.on{border-color:var(--fauve)}
+.card.ec{align-items:center;gap:12px;cursor:pointer}
+.card.ec .when{width:70px;flex:none;text-align:center;padding:6px;border-radius:10px;background:var(--surface-2);font-size:.85rem}
+.card.fa,.card.note,.card.cab{cursor:pointer}
+.card.fa .chk,.card.note .chk{margin-top:8px}
+.card.note.payee{opacity:.85}
+.card.cab .row{align-items:center;gap:10px;flex-wrap:wrap}
+.cotis-date{display:flex;align-items:center;gap:6px}
+.cotis-date input{width:auto;padding:5px 8px}
+.files-in .chips{margin-top:0}
+img.scan{display:block;max-width:100%;max-height:70vh;margin:0 auto 12px;border-radius:8px}
+.sheet-bg.over{z-index:60}
+.qr-set{align-items:center;gap:12px}
+.qr-prev{width:110px;height:110px;object-fit:contain;background:#fff;border-radius:8px}
+img.qr-big{display:block;width:100%;max-width:340px;margin:8px auto 14px;background:#fff;border-radius:10px;padding:8px}
+.banner.qr-banner{align-items:center}
+.adh-set{display:flex;flex-direction:column;gap:8px}
+.top .env{position:relative;margin-left:auto}
+.top .env+.me{margin-left:0}
+.top .env .pill,.top .env .pill{position:absolute;top:2px;right:0;min-width:18px;font-size:.7rem}
+.top .env.on{color:var(--ink)}
+.card.conv,.card.notif{align-items:center;gap:12px;font:inherit;cursor:pointer}
+.card.conv.unread b,.card.notif.unread b{font-weight:800}
+.card.notif.unread{border-color:var(--fauve)}
+.card.notif:not(.unread){opacity:.75}
+.card.notif>.ico{color:var(--fauve-deep)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--fauve-deep);flex:none}
+.conv-h{gap:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.chat.dm{height:calc(100vh - 190px - env(safe-area-inset-bottom))}
+.chat.grp{height:calc(100vh - 290px - env(safe-area-inset-bottom))}
+.chat-top{align-items:flex-start}
+.chat-top .seg{margin-bottom:8px}
+.grp-desc{margin:0 0 6px}
+.card.grp{align-items:center;gap:10px}
+@media (min-width:900px){.chat.dm{height:calc(100vh - 110px)}.chat.grp{height:calc(100vh - 210px)}}

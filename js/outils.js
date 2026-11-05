@@ -65,6 +65,17 @@ const ICONS={
   shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
   ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  clip:'<path d="M20 11l-8.5 8.5a5 5 0 0 1-7-7L13 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L14 7"/>',
+  file:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
+  coins:'<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',
+  cabin:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/><path d="M16 6.5V3h2v5"/>',
+  download:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  qr:'<rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2"/>',
+  key:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>',
+  receipt:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  back:'<path d="M15 5l-7 7 7 7"/>',
+  group:'<circle cx="9" cy="8" r="3"/><path d="M3 19c.7-3 3-5 6-5s5.3 2 6 5"/><path d="M16 5.5a3 3 0 0 1 0 5M18 14c1.6.7 2.6 2.4 3 5"/>',
 };
 const ico=(n,cls="")=>`<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]||""}</svg>`;
 // Pastille avec initiales quand il n'y a pas de photo.
@@ -109,26 +120,42 @@ function formHTML(fields,o={}){
     if(f.t==="textarea")inp=`<textarea id="${id}" name="${f.k}" rows="${f.rows||4}"${req}>${esc(v)}</textarea>`;
     else if(f.t==="select")inp=`<select id="${id}" name="${f.k}"${req}>${f.o.map(x=>{const[val,lab]=Array.isArray(x)?x:[x,x];return`<option value="${esc(val)}"${String(val)===String(v)?" selected":""}>${esc(lab)}</option>`}).join("")}</select>`;
     else if(f.t==="check")return`<label class="chk"><input type="checkbox" name="${f.k}"${v?" checked":""}> ${esc(f.l)}</label>`;
+    else if(f.t==="files")inp=`<div class="files-in"><input type="hidden" name="${f.k}" value="${esc(JSON.stringify(Array.isArray(v)?v:[]))}"><div class="chips" data-fl="${f.k}"></div>
+      <div class="row wrap"><label class="btn sm">${ico("camera")} Scanner avec l’appareil photo<input type="file" accept="image/*" capture="environment" hidden data-addfile="${f.k}"></label>
+      <label class="btn sm">${ico("clip")} Joindre une photo ou un PDF<input type="file" accept="image/*,application/pdf" multiple hidden data-addfile="${f.k}"></label></div></div>`;
     else if(f.t==="photo")inp=`<div class="photo-in">${avatar(o.nom||"",v,"lg")}<input type="hidden" name="${f.k}" value="${esc(v)}"><label class="btn sm">Choisir une photo<input type="file" accept="image/*" hidden data-photo="${f.k}"></label>${v?`<button type="button" class="btn sm ghost" data-nophoto="${f.k}">Retirer</button>`:""}</div>`;
-    else inp=`<input id="${id}" name="${f.k}" type="${f.t||"text"}" value="${esc(v)}"${f.min!=null?` min="${f.min}"`:""}${f.ph?` placeholder="${esc(f.ph)}"`:""}${req}>`;
+    else inp=`<input id="${id}" name="${f.k}" type="${f.t||"text"}" value="${esc(v)}"${f.min!=null?` min="${f.min}"`:""}${f.t==="number"?` step="any"`:""}${f.ph?` placeholder="${esc(f.ph)}"`:""}${req}>`;
     return`<div class="f${f.half?" half":""}"><label for="${id}">${esc(f.l)}</label>${inp}${f.h?`<small>${esc(f.h)}</small>`:""}</div>`;
   }).join("")}<div class="row end full">${o.id&&o._canDel?`<button type="button" class="btn danger ghost" data-del>${ico("trash")} Supprimer</button><span class="grow"></span>`:""}<button type="button" class="btn" data-close>Annuler</button><button class="btn primary">Enregistrer</button></div></form>`;
 }
 function readForm(form,fields){
   const o={};fields.forEach(f=>{const el=form.elements[f.k];if(!el)return;
-    if(f.t==="check")o[f.k]=el.checked;else if(f.t==="number")o[f.k]=el.value===""?null:Number(el.value);else o[f.k]=el.value.trim()});
+    if(f.t==="check")o[f.k]=el.checked;else if(f.t==="files")o[f.k]=JSON.parse(el.value||"[]");else if(f.t==="number")o[f.k]=el.value===""?null:Number(el.value);else o[f.k]=el.value.trim()});
   return o;
 }
 // Photo réduite à 320 px et compressée : elle tient dans la fiche, sans service de stockage de fichiers.
-function shrinkImage(file,max=320){
+function shrinkImage(file,max=320,q=.8){
   return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{
     const k=Math.min(1,max/Math.max(im.width,im.height));const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
-    c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.8))};im.onerror=rej;im.src=r.result};r.onerror=rej;r.readAsDataURL(file)});
+    c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",q))};im.onerror=rej;im.src=r.result};r.onerror=rej;r.readAsDataURL(file)});
 }
 // Ouvre un formulaire d'édition ; save(o) enregistre, remove() supprime.
 function editSheet(title,fields,o,{save,remove,wide}={}){
   const s=sheet(title,formHTML(fields,{...o,_canDel:!!remove}),{wide});const form=$("form",s);
-  form.addEventListener("submit",async e=>{e.preventDefault();const v=readForm(form,fields);try{await save(v);closeSheet()}catch(err){toast(err.message||"Enregistrement impossible","bad")}});
+  form.addEventListener("submit",async e=>{e.preventDefault();const v=readForm(form,fields);const btn=$("button.primary",form);btn.disabled=true;
+    try{for(const f of fields)if(f.t==="files")v[f.k]=await envoyerFichiers(v[f.k]);await save(v);closeSheet()}catch(err){toast(err.message||"Enregistrement impossible","bad")}finally{btn.disabled=false}});
+  // Documents joints (factures, tickets) : liste, ajout par photo ou fichier, retrait.
+  const drawFiles=k=>{const h=form.elements[k],l=JSON.parse(h.value||"[]"),box=$(`[data-fl="${k}"]`,form);
+    box.innerHTML=l.length?l.map((x,i)=>`<span class="chip">${x.id?`<button type="button" class="lnk" data-viewfile="${esc(x.id)}">${ico(x.type==="application/pdf"?"file":"camera")} ${esc(x.nom)}</button>`:`${ico(x.type==="application/pdf"?"file":"camera")} ${esc(x.nom)}`}<button type="button" class="x" data-rmfile="${i}" aria-label="Retirer">×</button></span>`).join(""):`<span class="small muted">Aucun document joint.</span>`;
+    $$("[data-rmfile]",box).forEach(b=>b.onclick=()=>{l.splice(+b.dataset.rmfile,1);h.value=JSON.stringify(l);drawFiles(k)});
+    $$("[data-viewfile]",box).forEach(b=>b.onclick=()=>voirFichier(b.dataset.viewfile,true));
+  };
+  fields.filter(f=>f.t==="files").forEach(f=>drawFiles(f.k));
+  $$("[data-addfile]",form).forEach(inp=>inp.addEventListener("change",async()=>{
+    const k=inp.dataset.addfile,h=form.elements[k],l=JSON.parse(h.value||"[]");
+    for(const file of inp.files){try{const p=await lireFichier(file);const tmp=uid();PENDING[tmp]=p;l.push({tmp,nom:p.nom,type:p.type})}catch(err){toast(err.message,"bad")}}
+    h.value=JSON.stringify(l);inp.value="";drawFiles(k);
+  }));
   $$("[data-photo]",form).forEach(inp=>inp.addEventListener("change",async()=>{
     const f=inp.files[0];if(!f)return;const url=await shrinkImage(f);form.elements[inp.dataset.photo].value=url;
     const av=$(".photo-in .av",form);av.outerHTML=`<img class="av lg" alt="" src="${url}">`;
@@ -136,4 +163,22 @@ function editSheet(title,fields,o,{save,remove,wide}={}){
   $$("[data-nophoto]",form).forEach(b=>b.onclick=()=>{form.elements[b.dataset.nophoto].value="";const av=$(".photo-in .av",form);av.outerHTML=avatar(o.nom||"","","lg");b.remove()});
   const d=$("[data-del]",form);if(d)d.onclick=async()=>{if(await confirmBox("Supprimer définitivement ?")){remove();}};
   return s;
+}
+
+/* ---------- Documents joints : affichage ---------- */
+const fichiersHTML=l=>(l||[]).length?`<div class="chips">${l.map(x=>`<button class="chip" data-viewfile="${esc(x.id)}">${ico(x.type==="application/pdf"?"file":"camera")} ${esc(x.nom)}</button>`).join("")}</div>`:"";
+function bindFichiers(root){$$("[data-viewfile]",root).forEach(b=>b.onclick=e=>{e.stopPropagation();voirFichier(b.dataset.viewfile)})}
+// Ouvre un document dans une petite fenêtre, avec un bouton pour le télécharger. over = par-dessus un formulaire ouvert.
+async function voirFichier(id,over){
+  let f=null;try{f=await getFichier(id)}catch(e){}
+  if(!f){toast("Document introuvable.","bad");return}
+  const body=`${f.type==="application/pdf"?`<p>${ico("file")} ${esc(f.nom)}</p>`:`<img class="scan" alt="${esc(f.nom)}" src="${f.data}">`}
+    <div class="row end"><a class="btn primary" href="${f.data}" download="${esc(f.nom)}">${ico("download")} Télécharger</a></div>`;
+  if(over){const w=document.createElement("div");w.className="sheet-bg over";w.innerHTML=`<div class="sheet"><div class="sheet-h"><h2>${esc(f.nom)}</h2><button class="iconbtn" data-x aria-label="Fermer">${ico("x")}</button></div><div class="sheet-b">${body}</div></div>`;
+    w.addEventListener("click",e=>{if(e.target===w||e.target.closest("[data-x]"))w.remove()});$("#sheetRoot").appendChild(w);return}
+  sheet(f.nom,body);
+}
+const chf=n=>(Number(n)||0).toLocaleString("fr-CH",{minimumFractionDigits:2,maximumFractionDigits:2})+" CHF";
+function telecharger(nom,texte,type="text/csv;charset=utf-8"){
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+texte],{type}));a.download=nom;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
 }

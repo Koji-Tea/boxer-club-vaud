@@ -1,109 +1,178 @@
 rules_version = '2';
-// Règles d'accès de la base Boxer Club Vaud (à coller dans Console Firebase > Firestore Database > Règles).
+// Règles d'accès de la base Boxer Club Vaud (à coller dans Console Firebase > Firestore Database > Règles, puis Publier).
 // Garder d'accord avec ROLES et COLS dans js/donnees.js.
 // - La vitrine (cours, moniteurs, wiki, comité, urgences, élevages, portées) est lisible par tout le monde.
-// - Le tchat, les inscriptions et la liste des adhérents sont réservés aux membres validés.
+// - Le tchat, les groupes, les messages privés, les inscriptions et la liste des adhérents sont réservés aux membres validés.
+// - La comptabilité, la cabane, les contacts (e-mail, téléphone) et les cotisations sont réservés au comité.
 // - Un nouveau compte est « en attente » jusqu'à ce que le comité lui donne un rôle. Le tout premier compte devient administrateur.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
     function userPath(uid) { return /databases/$(database)/documents/users/$(uid); }
     function setupPath() { return /databases/$(database)/documents/config/setup; }
-    function role() { return signedIn() && exists(userPath(request.auth.uid)) ? get(userPath(request.auth.uid)).data.role : 'aucun'; }
-    function member() { return role() in ['admin', 'president', 'caissier', 'comite', 'educ', 'moniteur', 'eleveur', 'membre', 'adherent']; }
-    function staff() { return role() in ['admin', 'president', 'caissier', 'comite', 'educ', 'moniteur']; }
-    function board() { return role() in ['admin', 'president', 'caissier', 'comite']; }
-    // Cotisations : admin, président·e et caissier·ère seulement. Ces trois rôles ne sont donnés que par un·e admin.
-    function finance() { return role() in ['admin', 'president', 'caissier']; }
-    function sensitive(r) { return r in ['admin', 'president', 'caissier']; }
+    function role() { return signedIn() && exists(userPath(me())) ? get(userPath(me())).data.role : 'aucun'; }
+    function allRoles() { return ['admin', 'president', 'caissier', 'resp_elevage', 'resp_cabane', 'resp_membres', 'comite', 'educ', 'moniteur', 'eleveur', 'adherent', 'membre', 'attente']; }
+    function member() { return role() in ['admin', 'president', 'caissier', 'resp_elevage', 'resp_cabane', 'resp_membres', 'comite', 'educ', 'moniteur', 'eleveur', 'adherent', 'membre']; }
+    // Le comité : voit la comptabilité, la cabane, les contacts et les cotisations.
+    function comite() { return role() in ['admin', 'president', 'caissier', 'resp_elevage', 'resp_cabane', 'resp_membres', 'comite', 'educ']; }
+    function coursEdit() { return role() in ['admin', 'president', 'resp_elevage', 'resp_cabane', 'educ', 'moniteur']; }
+    function adhEdit() { return role() in ['admin', 'president', 'caissier', 'resp_membres', 'comite']; }
+    function cotisEdit() { return role() in ['admin', 'president', 'caissier', 'resp_membres']; }
+    function comptaEdit() { return role() in ['admin', 'president', 'caissier']; }
     function isAdmin() { return role() == 'admin'; }
+    function chef() { return role() in ['admin', 'president']; }
+    function sensitive(r) { return r in ['admin', 'president', 'caissier']; }
+    // Changer un rôle de « from » vers « to » : admin seulement par l'admin ; président·e et caissier·ère par l'admin ou le/la président·e.
+    function canGiveRole(from, to) {
+      return isAdmin() || (chef() && from != 'admin' && to != 'admin') || (!sensitive(from) && !sensitive(to));
+    }
     function breeder() { return role() == 'eleveur'; }
-    function mine() { return request.resource.data.uid == request.auth.uid; }
-    function wasMine() { return resource.data.uid == request.auth.uid; }
+    function mine() { return request.resource.data.uid == me(); }
+    function wasMine() { return resource.data.uid == me(); }
+    function keys() { return request.resource.data.diff(resource.data).affectedKeys(); }
     function pseudoOwned(uid) { return getAfter(/databases/$(database)/documents/pseudos/$(request.resource.data.pk)).data.uid == uid; }
+    function texteOk(t) { return t is string && t.size() > 0 && t.size() <= 2000; }
 
-    // Réglages du club (textes de l'accueil, annonce…).
+    // Réglages du club (textes de l'accueil, annonce, QR code d'adhésion…).
     match /config/main {
       allow read: if true;
-      allow write: if board();
+      allow write: if comite();
     }
     // Marque que le premier administrateur existe : créée une seule fois, avec la fiche de cet admin.
     match /config/setup {
       allow get: if true;
-      allow create: if signedIn() && request.resource.data.admin == request.auth.uid
-        && getAfter(userPath(request.auth.uid)).data.role == 'admin';
+      allow create: if signedIn() && request.resource.data.admin == me()
+        && getAfter(userPath(me())).data.role == 'admin';
     }
 
     // ----- Vitrine -----
-    // Cours : moniteurs et comité gèrent tout ; un·e membre ajoute des cours et modifie seulement les siens.
-    match /cours/{id} {
-      allow read: if true;
-      allow create: if staff() || (role() == 'membre' && mine());
-      allow update: if staff() || (role() == 'membre' && wasMine() && mine());
-      allow delete: if staff() || (role() == 'membre' && wasMine());
-    }
-    match /moniteurs/{id} { allow read: if true; allow write: if staff(); }
-    match /wiki/{id}      { allow read: if true; allow write: if staff(); }
-    match /comite/{id}    { allow read: if true; allow write: if board(); }
-    match /urgences/{id}  { allow read: if true; allow write: if board(); }
+    match /cours/{id}     { allow read: if true; allow write: if coursEdit(); }
+    match /moniteurs/{id} { allow read: if true; allow write: if coursEdit(); }
+    match /wiki/{id}      { allow read: if true; allow write: if comite() || role() == 'moniteur'; }
+    match /comite/{id}    { allow read: if true; allow write: if comite(); }
+    match /urgences/{id}  { allow read: if true; allow write: if comite(); }
     // Élevages et portées : le comité gère tout, un·e éleveur·euse seulement ce qu'il ou elle a créé.
     match /elevages/{id} {
       allow read: if true;
-      allow create: if board() || (breeder() && mine());
-      allow update: if board() || (breeder() && wasMine() && mine());
-      allow delete: if board();
+      allow create: if comite() || (breeder() && mine());
+      allow update: if comite() || (breeder() && wasMine() && mine());
+      allow delete: if comite();
     }
     match /portees/{id} {
       allow read: if true;
-      allow create: if board() || (breeder() && mine());
-      allow update: if board() || (breeder() && wasMine() && mine());
-      allow delete: if board() || (breeder() && wasMine());
+      allow create: if comite() || (breeder() && mine());
+      allow update: if comite() || (breeder() && wasMine() && mine());
+      allow delete: if comite() || (breeder() && wasMine());
     }
 
     // ----- Comptes -----
     // Pseudo réservé (un document par pseudo) : sert à se connecter avec son pseudo. On peut lire un pseudo précis, pas la liste.
     match /pseudos/{p} {
       allow get: if true;
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+      allow create: if signedIn() && request.resource.data.uid == me()
         && request.resource.data.email == request.auth.token.email;
-      allow delete: if signedIn() && (resource.data.uid == request.auth.uid || board());
+      allow delete: if signedIn() && (resource.data.uid == me() || adhEdit());
     }
     match /users/{uid} {
-      allow get: if signedIn() && (request.auth.uid == uid || member());
+      allow get: if signedIn() && (me() == uid || member());
       allow list: if member();
       // Inscription : en attente, ou administrateur si c'est le tout premier compte. Le pseudo doit être réservé dans la même opération.
-      allow create: if signedIn() && request.auth.uid == uid && pseudoOwned(uid)
+      allow create: if signedIn() && me() == uid && pseudoOwned(uid)
         && (request.resource.data.role == 'attente'
             || (request.resource.data.role == 'admin' && !exists(setupPath()) && getAfter(setupPath()).data.admin == uid));
-      // Chacun modifie son profil (pas son rôle) ; le comité change les rôles (seul un admin touche aux rôles admin, président·e, caissier·ère).
-      allow update: if (request.auth.uid == uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pseudo', 'pk', 'prenom', 'chiens', 'chien', 'photo'])
-            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['pk']) || pseudoOwned(uid)))
-        || (board() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
-            && request.resource.data.role in ['admin', 'president', 'caissier', 'comite', 'educ', 'moniteur', 'eleveur', 'membre', 'adherent', 'attente']
-            && (isAdmin() || (!sensitive(resource.data.role) && !sensitive(request.resource.data.role))));
-      allow delete: if board() && request.auth.uid != uid && (isAdmin() || !sensitive(resource.data.role));
+      // Chacun modifie son profil (pas son rôle) ; la gestion des adhérents change les rôles.
+      allow update: if (me() == uid
+            && keys().hasOnly(['pseudo', 'pk', 'prenom', 'chiens', 'chien', 'photo', 'bcv', 'bcs'])
+            && (!keys().hasAny(['pk']) || pseudoOwned(uid)))
+        || (adhEdit() && keys().hasOnly(['role']) && request.resource.data.role in allRoles()
+            && canGiveRole(resource.data.role, request.resource.data.role));
+      allow delete: if adhEdit() && me() != uid && canGiveRole(resource.data.role, 'attente');
     }
-    // Cotisation de l'année réglée ou non (un document par compte).
+    // E-mail et téléphone : la personne elle-même et le comité.
+    match /prives/{uid} {
+      allow read: if signedIn() && (me() == uid || comite());
+      allow write: if signedIn() && me() == uid;
+    }
+    // Cotisation payée ou non, avec la date de paiement (un document par compte).
     match /cotisations/{uid} {
-      allow read, write: if finance();
+      allow read: if signedIn() && (me() == uid || comite());
+      allow write: if cotisEdit();
     }
 
     // ----- Espace membres -----
     // Inscription à un cours : une par personne et par cours (identifiant coursId_uid).
     match /inscriptions/{id} {
       allow read: if member();
-      allow create: if member() && mine() && id == request.resource.data.cours + '_' + request.auth.uid
+      allow create: if member() && mine() && id == request.resource.data.cours + '_' + me()
         && exists(/databases/$(database)/documents/cours/$(request.resource.data.cours));
-      allow delete: if signedIn() && (wasMine() || staff()
-        || get(/databases/$(database)/documents/cours/$(resource.data.cours)).data.uid == request.auth.uid);
+      allow delete: if signedIn() && (wasMine() || coursEdit());
     }
+    // Tchat général.
     match /messages/{id} {
       allow read: if member();
-      allow create: if member() && mine() && request.resource.data.texte is string
-        && request.resource.data.texte.size() > 0 && request.resource.data.texte.size() <= 2000
-        && request.resource.data.pseudo == get(userPath(request.auth.uid)).data.pseudo;
-      allow delete: if signedIn() && (wasMine() || board());
+      allow create: if member() && mine() && texteOk(request.resource.data.texte)
+        && request.resource.data.pseudo == get(userPath(me())).data.pseudo;
+      allow delete: if signedIn() && (wasMine() || comite());
     }
+    // Groupes de discussion : créés par le comité ; chacun·e rejoint ou quitte un groupe (seulement soi-même).
+    match /groupes/{g} {
+      function joinLeave() {
+        let a = request.resource.data.membres.toSet();
+        let b = resource.data.membres.toSet();
+        return keys().hasOnly(['membres'])
+          && ((a.difference(b) == [me()].toSet() && b.difference(a).size() == 0)
+              || (b.difference(a) == [me()].toSet() && a.difference(b).size() == 0));
+      }
+      allow read: if member();
+      allow create, delete: if comite();
+      allow update: if comite() || (member() && joinLeave());
+      // Le fil d'un groupe : lu et écrit par ses membres seulement.
+      match /msgs/{m} {
+        function inGroup() { return member() && me() in get(/databases/$(database)/documents/groupes/$(g)).data.membres; }
+        allow read: if inGroup();
+        allow create: if inGroup() && mine() && request.resource.data.g == g && texteOk(request.resource.data.texte);
+        allow delete: if signedIn() && (wasMine() || comite());
+      }
+    }
+    // Messages privés : la conversation {uidA_uidB} n'est lisible que par ses deux participant·es.
+    match /convs/{c} {
+      function inConv() { return member() && me() in c.split('_'); }
+      allow read: if signedIn() && me() in resource.data.p;
+      allow create, update: if inConv() && request.resource.data.p == c.split('_');
+      match /msgs/{m} {
+        allow read: if signedIn() && me() in c.split('_');
+        allow create: if inConv() && mine() && request.resource.data.c == c && texteOk(request.resource.data.texte);
+        allow delete: if signedIn() && wasMine();
+      }
+    }
+    // Notifications de l'app (enveloppe) : chacun·e lit et range les siennes.
+    match /notifs/{id} {
+      allow read: if signedIn() && resource.data.to == me();
+      allow create: if member() && request.resource.data.from == me() && request.resource.data.to is string
+        && request.resource.data.titre is string && request.resource.data.titre.size() <= 150;
+      allow update: if signedIn() && resource.data.to == me() && keys().hasOnly(['lu']);
+      allow delete: if signedIn() && resource.data.to == me();
+    }
+
+    // ----- Comité : comptabilité et cabane -----
+    match /compta/{an}      { allow read: if comite(); allow write: if comptaEdit(); }
+    match /ecritures/{id}   { allow read: if comite(); allow write: if comptaEdit(); }
+    match /factures/{id}    { allow read: if comite(); allow write: if comptaEdit(); }
+    // Notes de frais : chaque membre du comité crée les siennes et les modifie tant qu'elles ne sont pas payées.
+    match /notes/{id} {
+      allow read: if comite();
+      allow create: if comite() && mine() && request.resource.data.payee == false;
+      allow update: if comptaEdit()
+        || (comite() && wasMine() && mine() && resource.data.payee == false && request.resource.data.payee == false);
+      allow delete: if comptaEdit() || (comite() && wasMine() && resource.data.payee == false);
+    }
+    // Factures et tickets scannés (un document par fichier, moins de 1 Mo).
+    match /fichiers/{id} {
+      allow read: if comite();
+      allow create: if comite() && mine();
+      allow delete: if comptaEdit() || (comite() && wasMine());
+    }
+    match /cabane/{id}      { allow read, write: if comite(); }
   }
 }
