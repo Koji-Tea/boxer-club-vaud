@@ -315,3 +315,11 @@ img.qr-big{display:block;width:100%;max-width:340px;margin:8px auto 14px;backgro
   .urg>.btn.call{justify-content:center;width:100%}
   .urg>.small.muted{grid-column:1}
 }
+
+/* Vue rapide du tchat sur l'accueil */
+.card.apercu{padding:6px}
+.ap-msg{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:10px;color:inherit;text-decoration:none}
+.ap-msg:hover{background:var(--surface-2)}
+.ap-msg+.ap-msg{border-top:1px solid var(--line)}
+.ap-msg.neuf{background:color-mix(in srgb,#D93025 7%,transparent)}
+.ap-txt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}

@@ -18,6 +18,7 @@ VIEWS.accueil={t:"Accueil",r(){
     ${ME&&ME.role==="attente"?`<div class="banner info">${ico("clock")}<div>Ton compte attend la validation du comité. En attendant, tu peux tout consulter sauf le tchat et la liste des adhérents.</div></div>`:""}
     <h2 class="h">Prochains rendez-vous</h2>
     ${next.length?`<div class="list">${next.map(coursCard).join("")}</div><a class="more" href="#agenda">Tout l’agenda →</a>`:`<p class="muted">Aucun cours annoncé pour le moment.</p>`}
+    ${tchatApercu()}
     <h2 class="h">Le club</h2>
     <div class="tiles">
       <a class="tile" href="#moniteurs">${ico("coach")}<span>Nos moniteurs</span></a>
@@ -29,6 +30,21 @@ VIEWS.accueil={t:"Accueil",r(){
     </div>
     <div class="card soft"><h3>Première visite ?</h3><p>${rich(CFG.premiereVisite)}</p>${CFG.telClub?`<a class="btn sm" href="tel:${esc(CFG.telClub.replace(/[^\d+]/g,""))}">${ico("phone")} Contacter le club</a>`:""}</div>`;
 }};
+
+// Vue rapide du tchat sur l'accueil (membres) : les derniers messages du fil général et des groupes rejoints.
+function tchatApercu(){
+  if(!isMember())return"";
+  const grp=new Map(all("groupes").filter(dansGroupe).map(g=>[g.id,g]));
+  const l=[...all("messages").map(x=>({...x,_c:""})),...all("gmsgs").filter(x=>grp.has(x.g)).map(x=>({...x,_c:x.g}))]
+    .sort((a,b)=>String(b.at).localeCompare(a.at)).slice(0,4);
+  const nl=tchatNonLus();
+  return`<div class="row between"><h2 class="h">Tchat${dotNL(nl)}</h2><a class="more" href="#tchat">Ouvrir le tchat →</a></div>
+    ${l.length?`<div class="card apercu">${l.map(x=>{const u=get("users",x.uid)||(x.uid===ME.uid?ME:null),nom=x.pseudo||(u&&u.pseudo)||"",pre=u&&u.prenom,g=grp.get(x._c);
+      const neuf=x.uid!==ME.uid&&String(x.at)>vuLe(x._c||"general");
+      return`<a class="ap-msg${neuf?" neuf":""}" href="#tchat${x._c?"/"+esc(x._c):""}">${avatar(nom,u&&u.photo,"sm")}<span class="grow"><b>${esc(nom)}${pre?` <span class="muted">· ${esc(pre)}</span>`:""}</b>
+        <span class="small muted"> · ${g?esc(g.nom):"Général"} · ${esc(fmtAgo(x.at))}</span><br><span class="small ap-txt">${esc(String(x.texte).slice(0,140))}</span></span></a>`}).join("")}</div>`
+      :`<p class="muted">Aucun message pour l’instant. <a href="#tchat">Lance la discussion</a></p>`}`;
+}
 
 /* ---------- Plan d'accès ---------- */
 VIEWS.acces={t:"Plan d’accès",r(){
