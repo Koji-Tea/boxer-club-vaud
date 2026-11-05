@@ -308,3 +308,10 @@ img.qr-big{display:block;width:100%;max-width:340px;margin:8px auto 14px;backgro
 .top .env .nonlu{position:absolute;top:1px;right:-2px;min-width:18px;height:18px;padding:0 4px;font-size:.68rem}
 .tab-ico{position:relative;display:inline-flex}
 .nonlu.dot-only{position:absolute;top:-2px;right:-5px;min-width:10px;width:10px;height:10px;padding:0;border:2px solid var(--surface)}
+/* Contacts d'urgence sur téléphone : texte en haut, bouton d'appel en dessous sur toute la largeur */
+@media (max-width:600px){
+  .urg{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+  .urg>.grow{grid-column:1/-1}
+  .urg>.btn.call{justify-content:center;width:100%}
+  .urg>.small.muted{grid-column:1}
+}
