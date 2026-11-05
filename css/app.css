@@ -301,3 +301,4 @@ img.qr-big{display:block;width:100%;max-width:340px;margin:8px auto 14px;backgro
 .grp-desc{margin:0 0 6px}
 .card.grp{align-items:center;gap:10px}
 @media (min-width:900px){.chat.dm{height:calc(100vh - 110px)}.chat.grp{height:calc(100vh - 210px)}}
+.bub .pre{font-weight:600;opacity:.75}

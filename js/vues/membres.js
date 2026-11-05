@@ -15,8 +15,9 @@ function fillChat(box,list,first,nameOf,canDel,onDel,empty){
   const atBottom=first||box.scrollHeight-box.scrollTop-box.clientHeight<80;let prevDay="";
   box.innerHTML=list.length?list.map(x=>{
     const d=isoDay(new Date(x.at));const sep=d!==prevDay?`<div class="day">${esc(fmtDay(d))}</div>`:"";prevDay=d;
-    const mine=x.uid===ME.uid,u=get("users",x.uid),nom=x.pseudo||nameOf(x);
-    return`${sep}<div class="msg ${mine?"me":""}">${mine?"":avatar(nom,u&&u.photo,"sm")}<div class="bub">${mine?"":`<b>${esc(nom)}</b>`}<p>${rich(x.texte)}</p><small>${esc(fmtAgo(x.at))}${canDel(x)?` · <button class="lnk" data-delmsg="${esc(x.id)}">supprimer</button>`:""}</small></div></div>`;
+    const mine=x.uid===ME.uid,u=get("users",x.uid)||(mine?ME:null),nom=x.pseudo||(u&&u.pseudo)||nameOf(x),pre=u&&u.prenom;
+    // Pseudo et prénom de la personne qui écrit, sur chaque message (y compris les siens).
+    return`${sep}<div class="msg ${mine?"me":""}">${mine?"":avatar(nom,u&&u.photo,"sm")}<div class="bub"><b>${esc(nom)}${pre?` <span class="pre">· ${esc(pre)}</span>`:""}</b><p>${rich(x.texte)}</p><small>${esc(fmtAgo(x.at))}${canDel(x)?` · <button class="lnk" data-delmsg="${esc(x.id)}">supprimer</button>`:""}</small></div></div>`;
   }).join(""):`<p class="muted center">${esc(empty)}</p>`;
   $$("[data-delmsg]",box).forEach(b=>b.onclick=async()=>{if(await confirmBox("Supprimer ce message ?"))onDel(list.find(x=>x.id===b.dataset.delmsg))});
   if(atBottom)box.scrollTop=box.scrollHeight;
