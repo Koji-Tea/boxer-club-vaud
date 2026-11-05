@@ -10,6 +10,7 @@ const NAV=[
 ];
 const navItems=()=>NAV.filter(n=>!n[3]||n[3]());
 const TABS=["accueil","agenda","club","tchat"];
+const TAB_L={club:"Membres"}; // libellés courts de la barre du bas
 // Pastille à côté d'une rubrique : comptes à valider, notes de frais à payer, échéances de la cabane.
 function navPill(k){
   const n=k==="reglages"?pendingCount():k==="compta"&&isComptaEdit()?all("notes").filter(x=>!x.payee).length:k==="cabane"?cabaneAlertes().length:0;
@@ -35,7 +36,7 @@ function navHTML(){
 }
 const pendingCount=()=>isAdhEdit()?all("users").filter(u=>u.role==="attente").length:0;
 function tabsHTML(){
-  return TABS.map(k=>{const[,l,i]=NAV.find(n=>n[0]===k);return`<a href="#${k}" class="${ROUTE===k?"on":""}"><span class="tab-ico">${ico(i)}${k==="tchat"&&tchatNonLus()?`<em class="nonlu dot-only"></em>`:""}</span><span>${l.split(" ")[0]}</span></a>`}).join("")
+  return TABS.map(k=>{const[,l,i]=NAV.find(n=>n[0]===k);return`<a href="#${k}" class="${ROUTE===k?"on":""}"><span class="tab-ico">${ico(i)}${k==="tchat"&&tchatNonLus()?`<em class="nonlu dot-only"></em>`:""}</span><span>${TAB_L[k]||l.split(" ")[0]}</span></a>`}).join("")
     +`<button id="moreBtn" class="${TABS.includes(ROUTE)?"":"on"}">${ico("more")}<span>Plus</span></button>`;
 }
 function openMore(){
