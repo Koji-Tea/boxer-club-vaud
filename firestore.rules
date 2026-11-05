@@ -158,7 +158,14 @@ service cloud.firestore {
     // ----- Comité : comptabilité et cabane -----
     match /compta/{an}      { allow read: if comite(); allow write: if comptaEdit(); }
     match /ecritures/{id}   { allow read: if comite(); allow write: if comptaEdit(); }
-    match /factures/{id}    { allow read: if comite(); allow write: if comptaEdit(); }
+    // Factures : chaque membre du comité en ajoute (scan) ; seuls admin, président·e et caissier·ère les marquent payées.
+    match /factures/{id} {
+      allow read: if comite();
+      allow create: if comptaEdit() || (comite() && mine() && request.resource.data.payee == false);
+      allow update: if comptaEdit()
+        || (comite() && wasMine() && mine() && resource.data.payee == false && request.resource.data.payee == false);
+      allow delete: if comptaEdit() || (comite() && wasMine() && resource.data.payee == false);
+    }
     // Notes de frais : chaque membre du comité crée les siennes et les modifie tant qu'elles ne sont pas payées.
     match /notes/{id} {
       allow read: if comite();

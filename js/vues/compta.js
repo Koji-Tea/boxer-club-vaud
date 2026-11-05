@@ -64,7 +64,7 @@ VIEWS.compta={t:"Comptabilité",r(){
   $$("[data-filt]",m).forEach(x=>x.onclick=()=>{ls("bcv-compta-filt",x.dataset.filt);rerender()});
   // Factures
   b("addFa",()=>editFacture({compte:"club",date:defDate()}));
-  $$("[data-fa]",m).forEach(x=>x.onclick=e=>!e.target.closest("label,button")&&isComptaEdit()&&!cloture(anDe(get("factures",x.dataset.fa)))&&editFacture(get("factures",x.dataset.fa)));
+  $$("[data-fa]",m).forEach(x=>x.onclick=e=>!e.target.closest("label,button")&&peutFacture(get("factures",x.dataset.fa))&&editFacture(get("factures",x.dataset.fa)));
   $$("[data-fapay]",m).forEach(c=>{c.onclick=e=>e.stopPropagation();c.onchange=()=>{const o=get("factures",c.dataset.fapay);put("factures",{...o,payee:c.checked,payeeLe:c.checked?today():""});toast(c.checked?"Facture notée payée":"Facture notée à payer")}});
   // Notes de frais
   b("addNote",()=>editNote({date:today()}));
@@ -142,15 +142,18 @@ function ecrituresHTML(){
 }
 
 /* ---------- Factures ---------- */
+// Chaque membre du comité ajoute (scanne) une facture ; seuls admin, président·e et caissier·ère la marquent payée.
+const peutFacture=o=>!!o&&!cloture(anDe(o))&&(isComptaEdit()||(o.uid===ME.uid&&!o.payee));
 function editFacture(o){
+  const pay=isComptaEdit();
   editSheet(o.id?"Modifier la facture":"Nouvelle facture",[
     {k:"fournisseur",l:"Fournisseur",req:true,half:true},{k:"objet",l:"Objet",half:true},
     {k:"date",l:"Date de la facture",t:"date",req:true,half:true},{k:"echeance",l:"À payer avant le",t:"date",half:true},
     {k:"montant",l:"Montant (CHF)",t:"number",min:0,req:true,half:true},{k:"compte",l:"Payée depuis le compte",t:"select",o:Object.entries(COMPTES),half:true},
     {k:"fichiers",l:"Facture scannée",t:"files"},
-    {k:"payee",l:"Facture payée",t:"check"},{k:"payeeLe",l:"Payée le",t:"date"},
+    ...(pay?[{k:"payee",l:"Facture payée",t:"check"},{k:"payeeLe",l:"Payée le",t:"date"}]:[]),
     {k:"remarque",l:"Remarque",t:"textarea",rows:2}],o,{wide:true,
-    save:v=>put("factures",{...o,...v,payeeLe:v.payee?(v.payeeLe||today()):"",annee:v.date.slice(0,4)}),
+    save:v=>{const p=pay?!!v.payee:!!o.payee;return put("factures",{...o,...v,payee:p,payeeLe:p?(v.payeeLe||o.payeeLe||today()):"",annee:v.date.slice(0,4),uid:o.uid||ME.uid})},
     remove:o.id&&(()=>{del("factures",o.id);supprimerFichiers(o.fichiers)})});
 }
 function factureCard(o){
@@ -164,7 +167,7 @@ function factureCard(o){
 function facturesHTML(){
   const ouv=all("factures").filter(o=>!o.payee).sort((a,b)=>String(a.echeance||a.date).localeCompare(b.echeance||b.date));
   const pay=all("factures").filter(o=>o.payee&&anDe(o)===COMPTA_AN).sort((a,b)=>String(b.payeeLe||b.date).localeCompare(a.payeeLe||a.date));
-  return`<div class="row between wrap"><p class="small">À payer : <b>${chf(somme(ouv))}</b></p>${isComptaEdit()?addBtn("addFa","Nouvelle facture"):""}</div>
+  return`<div class="row between wrap"><p class="small">À payer : <b>${chf(somme(ouv))}</b></p>${!cloture()?addBtn("addFa","Nouvelle facture"):""}</div>
     <h2 class="h">À payer (${ouv.length})</h2>${ouv.length?`<div class="list">${ouv.map(factureCard).join("")}</div>`:`<p class="muted">Aucune facture en attente.</p>`}
     <h2 class="h">Payées en ${COMPTA_AN} (${pay.length})</h2>${pay.length?`<div class="list">${pay.map(factureCard).join("")}</div>`:`<p class="muted">Aucune facture payée en ${COMPTA_AN}.</p>`}
     <p class="small muted">Scanne la facture avec l’appareil photo du téléphone, ou joins le PDF reçu par e-mail. Les factures payées restent archivées par année.</p>`;

@@ -56,7 +56,7 @@ VIEWS.soutenir={t:"Soutenir le club",r(){
         <img class="twint" alt="Code QR Twint du Boxer Club Vaud" src="${CLUB.twintImg}" onerror="this.replaceWith(Object.assign(document.createElement('p'),{className:'small muted',textContent:'Le code QR est affiché sur boxerclubvaud.ch.'}))">
         <div class="row wrap">${L(CLUB.site+"#contact","Voir sur le site du club")}</div></div>
       <div class="card"><h3>${ico("club")} Devenir membre</h3><p>Rejoignez le club : cours d’éducation, sorties, entraide et convivialité.</p>
-        ${CFG.qrAdhesion?`<div class="row wrap"><button class="btn primary" data-qr>${ico("qr")} Payer l’adhésion (QR code)</button></div>`:""}
+        ${qrSrc()?`<div class="row wrap"><button class="btn primary" data-qr>${ico("qr")} Payer l’adhésion (QR code)</button></div>`:""}
         <div class="row wrap">${L(CLUB.dossier,"Dossier d’inscription (PDF)")}${L(CLUB.statutsBCV,"Statuts BCV")}${L(CLUB.statutsBCS,"Statuts BCS")}</div></div>
       <div class="card"><h3>${ico("paw")} Vêtements et autocollants</h3><p>Portez les couleurs du club : la vente finance ses activités.</p>
         <div class="row wrap">${L(CLUB.prix,"Liste de prix")}${L(CLUB.catalogue,"Catalogue 2025")}${L(CLUB.commande,"Commander")}</div></div>
@@ -108,6 +108,7 @@ VIEWS.club={t:"Comité & adhérents",r(){
   const q=$("#adhQ",m);if(q)q.oninput=()=>{const t=norm(q.value);$$(".adh",m).forEach(x=>x.hidden=t&&!norm(x.dataset.s).includes(t))};
   $$("[data-user]",m).forEach(b=>b.onclick=()=>userSheet(get("users",b.dataset.user)));
   bindRoleSelects(m);bindCotis(m);bindQR(m);
+  const ib=$("#infoBcs",m);if(ib)ib.onclick=()=>sheet("Adhésion au Boxer Club Suisse",`<p>${esc(INFO_BCS)}</p>`);
   $$("[data-adhf]",m).forEach(b=>b.onclick=()=>{ls("bcv-adh-f",b.dataset.adhf);rerender()});
 }};
 function comiteHTML(){
@@ -145,22 +146,24 @@ function bindCotis(m){
 /* ---------- QR code de paiement de l'adhésion ---------- */
 function qrSheet(){
   sheet("Payer mon adhésion",`<p>Cotisation annuelle au Boxer Club Vaud : <b>${chf(montantCotis())}</b>. Scanne ce QR code avec l’app de ta banque, ou télécharge-le pour le garder.</p>
-    <img class="qr-big" alt="QR code de paiement de l’adhésion" src="${CFG.qrAdhesion}">
-    <div class="row end"><a class="btn primary" href="${CFG.qrAdhesion}" download="QR-adhesion-Boxer-Club-Vaud.jpg">${ico("download")} Télécharger le QR code</a></div>`);
+    <img class="qr-big" alt="QR code de paiement de l’adhésion" src="${qrSrc()}">
+    <div class="row end"><a class="btn primary" href="${qrSrc()}" download="QR-adhesion-Boxer-Club-Vaud${qrSrc().startsWith("data:image/jpeg")?".jpg":".png"}">${ico("download")} Télécharger le QR code</a></div>`);
 }
 const bindQR=m=>$$("[data-qr]",m).forEach(b=>b.onclick=qrSheet);
 
+const INFO_BCS="L’adhésion au Boxer Club Suisse est également obligatoire et facturée séparément, à 93 CHF/an, avec 18 CHF de frais d’entrée uniques selon le tarif 2025. Ces montants restent à confirmer pour 2026–2027.";
 /* ---------- Adhérents ----------
    Tout le monde voit pseudo, prénom et chiens. Le comité voit en plus e-mail, téléphone, adhésions et cotisations. */
 function adherentsHTML(){
-  const qr=CFG.qrAdhesion?`<div class="banner good qr-banner">${ico("qr")}<div class="grow"><b>Payer son adhésion au Boxer Club Vaud</b><br><span class="small">Télécharge le QR code de paiement (cotisation ${chf(montantCotis())} par an).</span></div><button class="btn sm primary" data-qr>${ico("download")} QR code</button></div>`
+  const qr=qrSrc()?`<div class="banner good qr-banner">${ico("qr")}<div class="grow"><b>Payer son adhésion au Boxer Club Vaud</b><br><span class="small">Télécharge le QR code de paiement (cotisation ${chf(montantCotis())} par an).</span></div><button class="btn sm primary" data-qr>${ico("download")} QR code</button></div>`
     :isComite()?`<p class="small muted">${ico("qr")} Ajoute le QR code de paiement de l’adhésion dans <a href="#reglages">Réglages</a> : un bouton pour le télécharger s’affichera ici.</p>`:"";
-  const lock=membersOnly("La liste des adhérents");if(lock)return qr+lock;
+  const info=`<div class="row end"><button class="btn sm ghost" id="infoBcs" aria-label="Information sur l’adhésion au Boxer Club Suisse">${ico("info")} Info adhésion Boxer Club Suisse</button></div>`;
+  const lock=membersOnly("La liste des adhérents");if(lock)return info+qr+lock;
   const com=isComite(),an=anneeCotis(),f=com?(ls("bcv-adh-f")||"tous"):"tous";
   const list=all("users").filter(u=>MEMBERS.includes(u.role)).sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo));
   const nb=com?list.filter(u=>cotisPayee(u.id)).length:0;
   const shown=list.filter(u=>f==="tous"||(f==="paye")===cotisPayee(u.id));
-  return`${qr}<p class="muted">${list.length} membre${list.length>1?"s":""} et adhérent·es inscrit·es dans l’app.</p>
+  return`${info}${qr}<p class="muted">${list.length} membre${list.length>1?"s":""} et adhérent·es inscrit·es dans l’app.</p>
     ${com?`<div class="banner info cotis">${ico("check")}<div><b>Cotisations ${an} : ${nb} sur ${list.length} payée${nb>1?"s":""}.</b><br><span class="small">Contacts et cotisations : visibles seulement par le comité.</span></div></div>
       <div class="seg">${[["tous","Tous"],["paye","Cotisation payée"],["non","Pas encore payée"]].map(([k,l])=>`<button data-adhf="${k}" class="${f===k?"on":""}">${l}</button>`).join("")}</div>`:""}
     <div class="search">${ico("search")}<input id="adhQ" type="search" placeholder="Chercher un pseudo, un prénom, un chien…"></div>

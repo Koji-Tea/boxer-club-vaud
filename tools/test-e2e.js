@@ -104,7 +104,8 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   ok(r==='ok','responsable éducation annule le cours d’un autre');
   r=await D.evaluate(async()=>{try{await firebase.firestore().collection('wiki').add({q:'Q ?',r:'R',cat:'Le boxer'});return 'ok'}catch(e){return e.message}});
   ok(r==='ok','responsable éducation répond dans le wiki');
-  r=await tryWrite(D,()=>firebase.firestore().collection('factures').add({fournisseur:'x'}));ok(r.includes('permission'),'responsable éducation ne modifie pas la comptabilité');
+  r=await tryWrite(D,()=>firebase.firestore().collection('factures').add({fournisseur:'x',payee:false,uid:firebase.auth().currentUser.uid}));ok(r==='ok','comité ajoute une facture');
+  r=await tryWrite(D,()=>firebase.firestore().collection('factures').add({fournisseur:'x',payee:true,uid:firebase.auth().currentUser.uid}));ok(r.includes('permission'),'comité ne marque pas une facture payée');
   r=await tryWrite(B,()=>firebase.firestore().collection('cours').add({titre:'x'}));ok(r.includes('permission'),'caissier·ère ne modifie pas l’agenda');
 
   // Notes de frais : le comité les crée, le/la caissier·ère est prévenu·e, puis les paie

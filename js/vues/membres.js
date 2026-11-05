@@ -97,7 +97,7 @@ VIEWS.compte={t:"Mon compte",r(){
     <h2 class="h">Mon adhésion</h2>
     <div class="card"><p>${[ME.bcv?"Adhérent·e Boxer Club Vaud":"",ME.bcs?"Adhérent·e Boxer Club Suisse":""].filter(Boolean).join(" · ")||`<span class="muted">Adhésion pas encore indiquée (Modifier mon profil).</span>`}</p>
       ${S.cotisations.has(ME.uid)||isComite()?`<p class="small">Cotisation ${anneeCotis()} : ${cotisPayee(ME.uid)?`<b>payée</b>${cotisDate(ME.uid)?" le "+esc(fmtDayY(cotisDate(ME.uid))):""} ✔`:"pas encore enregistrée par le comité."}</p>`:""}
-      ${CFG.qrAdhesion?`<button class="btn sm" data-qr>${ico("qr")} QR code pour payer mon adhésion</button>`:""}</div>
+      ${qrSrc()?`<button class="btn sm" data-qr>${ico("qr")} QR code pour payer mon adhésion</button>`:""}</div>
     <div class="row between"><h2 class="h">Mes chiens</h2><button class="btn sm" id="addDog">${ico("plus")} Ajouter un chien</button></div>
     ${(ME.chiens||[]).length?`<div class="dogs edit">${ME.chiens.map((c,i)=>`<button class="card dog" data-dog="${i}">${avatar(c.nom,c.photo,"lg")}<div class="grow"><b>${esc(c.nom)}</b>
       <div class="small">${[SEXES[c.sexe],c.race,c.naissance?ageFrom(c.naissance):""].filter(Boolean).map(esc).join(" · ")}</div>${c.remarque?`<p class="small">${esc(c.remarque)}</p>`:""}</div>${ico("edit")}</button>`).join("")}</div>`
@@ -210,7 +210,7 @@ VIEWS.reglages={t:"Réglages",r(){
       ${u.id!==ME.uid&&canGiveRole(u.role,"attente")?`<button class="iconbtn" data-no="${esc(u.id)}" aria-label="Retirer">${ico("trash")}</button>`:""}</div>`).join("")}</div>`:""}
     <details class="card"><summary>Ce que permet chaque rôle</summary>${Object.entries(ROLES).filter(([k,r])=>!r.old).map(([k,r])=>`<p class="small"><b>${r.l}</b> : ${r.d}</p>`).join("")}</details>
     <h2 class="h">QR code de paiement de l’adhésion</h2>
-    <div class="card row wrap qr-set">${CFG.qrAdhesion?`<img class="qr-prev" alt="QR code de paiement" src="${CFG.qrAdhesion}">`:`<span class="small muted grow">Pas encore de QR code. Ajoute l’image du QR code de paiement : un bouton « Payer mon adhésion » apparaît alors en haut de la liste des adhérents, dans Mon compte et dans Soutenir.</span>`}
+    <div class="card row wrap qr-set">${qrSrc()?`<img class="qr-prev" alt="QR code de paiement" src="${qrSrc()}">`:`<span class="small muted grow">Pas encore de QR code. Ajoute l’image du QR code de paiement : un bouton « Payer mon adhésion » apparaît alors en haut de la liste des adhérents, dans Mon compte et dans Soutenir.</span>`}
       <label class="btn sm">${ico("qr")} ${CFG.qrAdhesion?"Remplacer":"Ajouter"} l’image<input type="file" accept="image/*" hidden id="qrIn"></label>${CFG.qrAdhesion?`<button class="btn sm ghost" id="qrDel">Retirer</button>`:""}</div>
     <h2 class="h">Textes de l’app</h2>
     <form id="cfgForm" class="form card">

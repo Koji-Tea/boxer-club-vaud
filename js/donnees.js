@@ -85,7 +85,10 @@ let CFG={
   premiereVisite:"Pour une première visite, prenez contact avec le président, Vincent, au 079 252 77 49.",
   telClub:"079 252 77 49", // numéro du bouton « Contacter le club » de l’accueil
   cotisation:70,          // cotisation annuelle Boxer Club Vaud, en CHF
-  qrAdhesion:"",          // QR code de paiement de l'adhésion (image), ajouté dans Réglages
+  qrAdhesion:"",          // QR code de paiement de l’adhésion remplacé dans Réglages ; sinon img/qr-adhesion.png
+};
+const qrSrc=()=>CFG.qrAdhesion||"img/qr-adhesion.png";
+const _cfgEnd={
   detresse:"Boxer en détresse est une section du Boxer Club Suisse qui aide les boxers à trouver un nouveau foyer, sans passer par un refuge. Responsable romande : Suzanne Rochat, 076 481 89 25. Les frais d’adoption (500 CHF) et les dons financent la pension et les soins vétérinaires d’urgence. La section fonctionne sans subvention : chaque don compte.",
 };
 
