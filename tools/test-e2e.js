@@ -140,6 +140,13 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   await go(E,'#club/adherents');await E.waitForTimeout(1000);
   ok(!(await E.textContent('.v-club')).includes('@test.ch')&&!(await E.$('.adh-foot')),'adhérente ne voit ni e-mails ni cotisations');
   ok(!(await E.$('.side a[href="#compta"]')),'menu sans comptabilité pour l’adhérente');
+  // Fiche du chien : vaccin et carnet de vaccination joint
+  await go(E,'#compte');await E.waitForTimeout(500);await E.click('#addDog');await E.fill('#f_nom','Rex');await E.check('.sheet [name=vaccin]');
+  await E.setInputFiles('[data-addfile=carnet][multiple]',{name:'carnet.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64')});await E.waitForTimeout(600);
+  await E.click('.sheet button.primary');await E.waitForTimeout(1800);
+  ok((await E.textContent('.dogs')).includes('Vacciné'),'chien noté vacciné');
+  r=await A.evaluate(async u=>{const c=(get('users',u).chiens||[]).find(x=>x.nom==='Rex');const f=c&&c.carnet&&c.carnet[0]&&await getFichier(c.carnet[0].id);return f?f.data.slice(0,10):'rien'},eUid);
+  ok(r.startsWith('data:image'),'carnet de vaccination visible par le comité');
   // Groupes
   await go(A,'#tchat');await A.click('#grpBtn');await A.click('#newG');await A.fill('#f_nom','Balades');await A.click('.sheet button.primary');await A.waitForTimeout(1500);
   const gid=await A.evaluate(()=>all('groupes')[0].id);

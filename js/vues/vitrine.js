@@ -196,14 +196,22 @@ function userSheet(u){
   if(!u)return;
   const com=isComite(),p=com?priveDe(u.id):{},an=anneeCotis(),dt=cotisDate(u.id);
   const kv=(l,v)=>`<div class="kv"><span>${l}</span><div>${v||"—"}</div></div>`;
-  sheet(u.pseudo,`<div class="row">${avatar(u.pseudo,u.photo,"lg")}<div class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?` · ${esc(u.prenom)}`:""}<br>${roleBadge(u)}</div></div>
+  const s=sheet(u.pseudo,`<div class="row">${avatar(u.pseudo,u.photo,"lg")}<div class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?` · ${esc(u.prenom)}`:""}<br>${roleBadge(u)}</div></div>
     ${isMember()&&u.id!==ME.uid&&MEMBERS.includes(u.role)?`<div class="row"><a class="btn primary" href="#boite/m/${esc(u.id)}">${ico("mail")} Envoyer un message</a></div>`:""}
     ${com?`<div class="card soft">${kv("E-mail",mailLink(p.email))}${kv("Téléphone",telLink(p.tel))}${kv("Adhésion",[u.bcv?"Boxer Club Vaud":"",u.bcs?"Boxer Club Suisse":""].filter(Boolean).join(" · "))}
       ${kv("Cotisation "+an,cotisPayee(u.id)?"Payée"+(dt?" le "+esc(fmtDayY(dt)):""):"Pas encore payée")}<p class="small muted">Visible seulement par le comité.</p></div>`:""}
-    ${(u.chiens||[]).length?`<h3>Ses chiens</h3>${dogsHTML(u.chiens)}`:`<p class="muted">Aucun chien renseigné.</p>`}`);
+    ${(u.chiens||[]).length?`<h3>Ses chiens</h3>${dogsHTML(u.chiens,u.id)}`:`<p class="muted">Aucun chien renseigné.</p>`}`);
+  bindFichiers(s);
 }
-function dogsHTML(list){
+// Vaccins du chien et carnet joint : visibles seulement par la personne elle-même et le comité.
+function vaccinHTML(c,uid){
+  if(!uid||!(isComite()||(ME&&uid===ME.uid)))return"";
+  const st=c.vaccin?`<span class="badge good">💉 Vacciné${c.sexe==="F"?"e":""}${c.vaccinDate?" · rappel le "+esc(fmtDayY(c.vaccinDate)):""}</span>`:c.vaccin===false?`<span class="badge bad">Pas vacciné${c.sexe==="F"?"e":""}</span>`:"";
+  const voir=uid&&(isComite()||(ME&&uid===ME.uid));
+  return(st||(voir&&(c.carnet||[]).length)?`<div class="vacc">${st}${voir?fichiersHTML(c.carnet):""}</div>`:"");
+}
+function dogsHTML(list,uid){
   return`<div class="dogs">${(list||[]).map(c=>`<div class="dog">${avatar(c.nom,c.photo,"lg")}<div><b>${esc(c.nom||"Sans nom")}</b>
     <div class="small">${[SEXES[c.sexe],c.race,c.naissance?ageFrom(c.naissance)+" (né"+(c.sexe==="F"?"e":"")+" le "+fmtDayY(c.naissance)+")":""].filter(Boolean).map(esc).join(" · ")}</div>
-    ${c.remarque?`<p class="small">${rich(c.remarque)}</p>`:""}</div></div>`).join("")}</div>`;
+    ${c.remarque?`<p class="small">${rich(c.remarque)}</p>`:""}${vaccinHTML(c,uid)}</div></div>`).join("")}</div>`;
 }

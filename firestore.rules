@@ -174,10 +174,11 @@ service cloud.firestore {
         || (comite() && wasMine() && mine() && resource.data.payee == false && request.resource.data.payee == false);
       allow delete: if comptaEdit() || (comite() && wasMine() && resource.data.payee == false);
     }
-    // Factures et tickets scannés (un document par fichier, moins de 1 Mo).
+    // Factures, tickets scannés et carnets de vaccination (un document par fichier, moins de 1 Mo).
+    // Chacun·e lit ses propres fichiers ; le comité lit tout.
     match /fichiers/{id} {
-      allow read: if comite();
-      allow create: if comite() && mine();
+      allow read: if comite() || (signedIn() && resource.data.uid == me());
+      allow create: if signedIn() && mine();
       allow delete: if comptaEdit() || (comite() && wasMine());
     }
     match /cabane/{id}      { allow read, write: if comite(); }

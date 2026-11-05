@@ -88,7 +88,9 @@ function editGroupe(o){
 /* ---------- Compte ---------- */
 const DOG_FIELDS=[{k:"nom",l:"Nom du chien",req:true,half:true},{k:"sexe",l:"Sexe",t:"select",o:[["M","Mâle"],["F","Femelle"]],half:true},
   {k:"naissance",l:"Date de naissance",t:"date",half:true,h:"L’âge se calcule tout seul."},{k:"race",l:"Race",half:true,d:"Boxer"},
-  {k:"photo",l:"Photo",t:"photo"},{k:"remarque",l:"Commentaire",t:"textarea",rows:2,ph:"Castré, stérilisée, allergies, caractère…"}];
+  {k:"photo",l:"Photo",t:"photo"},{k:"remarque",l:"Commentaire",t:"textarea",rows:2,ph:"Castré, stérilisée, allergies, caractère…"},
+  {k:"vaccin",l:"Vacciné·e (vaccins à jour) — visible seulement par toi et le comité",t:"check"},{k:"vaccinDate",l:"Date du dernier rappel de vaccin",t:"date",half:true},
+  {k:"carnet",l:"Carnet de vaccination (photo ou PDF)",t:"files",h:"Visible seulement par toi et le comité."}];
 VIEWS.compte={t:"Mon compte",r(){
   if(!ME)return authHTML();
   if(ME._noProfile)return`<div class="card narrow"><h2>Terminer l’inscription</h2><p>Ton compte <b>${esc(ME.email)}</b> existe, mais il lui manque un pseudo.</p>${regFields(false)}</div>`;
@@ -103,7 +105,7 @@ VIEWS.compte={t:"Mon compte",r(){
       ${qrSrc()?`<button class="btn sm" data-qr>${ico("qr")} QR code pour payer mon adhésion</button>`:""}</div>
     <div class="row between"><h2 class="h">Mes chiens</h2><button class="btn sm" id="addDog">${ico("plus")} Ajouter un chien</button></div>
     ${(ME.chiens||[]).length?`<div class="dogs edit">${ME.chiens.map((c,i)=>`<button class="card dog" data-dog="${i}">${avatar(c.nom,c.photo,"lg")}<div class="grow"><b>${esc(c.nom)}</b>
-      <div class="small">${[SEXES[c.sexe],c.race,c.naissance?ageFrom(c.naissance):""].filter(Boolean).map(esc).join(" · ")}</div>${c.remarque?`<p class="small">${esc(c.remarque)}</p>`:""}</div>${ico("edit")}</button>`).join("")}</div>`
+      <div class="small">${[SEXES[c.sexe],c.race,c.naissance?ageFrom(c.naissance):""].filter(Boolean).map(esc).join(" · ")}</div>${c.remarque?`<p class="small">${esc(c.remarque)}</p>`:""}${vaccinHTML(c,ME.uid)}</div>${ico("edit")}</button>`).join("")}</div>`
       :`<p class="muted">Présente ton compagnon : nom, sexe, âge, photo…</p>`}
     <h2 class="h">Rappels avant les cours</h2>
     <div class="card">
@@ -154,7 +156,8 @@ function regFields(full=true){
       <div class="f half"><label for="dRace">Race</label><input id="dRace" value="Boxer"></div>
       <div class="f"><label>Photo</label><div class="photo-in"><span class="av lg" id="dPrev">🐾</span><label class="btn sm">Choisir une photo<input type="file" accept="image/*" hidden id="dPhoto"></label></div></div>
       <div class="f"><label for="dRem">Commentaire</label><textarea id="dRem" rows="2" placeholder="Castré, stérilisée, caractère…"></textarea></div>
-      <small>Tu pourras ajouter d’autres chiens ensuite dans ton profil.</small></fieldset>
+      <label class="chk"><input type="checkbox" id="dVacc"> Vacciné·e (vaccins à jour)</label>
+      <small>Tu pourras ajouter d’autres chiens et joindre le carnet de vaccination ensuite dans ton profil.</small></fieldset>
     <p id="rErr" class="err" hidden></p>
     <button class="btn primary block">Créer mon compte</button>
     <p class="small muted">Le comité valide ensuite ton compte pour ouvrir le tchat et les inscriptions aux cours.</p></form>`;
@@ -190,7 +193,7 @@ function bindAuth(m){
   rf.onsubmit=async e=>{e.preventDefault();const err=$("#rErr",m);err.hidden=true;const btn=$("button.primary",rf);btn.disabled=true;
     const v=id=>{const x=$("#"+id,m);return x?x.value.trim():""};
     const ck=id=>{const x=$("#"+id,m);return!!(x&&x.checked)};const extra={tel:v("rTel"),bcv:ck("rBcv"),bcs:ck("rBcs")};
-    const chiens=v("dNom")?[{nom:v("dNom"),sexe:v("dSexe"),naissance:v("dNaiss"),race:v("dRace"),remarque:v("dRem"),photo}]:[];
+    const chiens=v("dNom")?[{nom:v("dNom"),sexe:v("dSexe"),naissance:v("dNaiss"),race:v("dRace"),remarque:v("dRem"),vaccin:ck("dVacc"),photo}]:[];
     try{
       if(ME&&ME._noProfile){if(!PSEUDO_RE.test(v("rPseudo")))throw new Error("Pseudo invalide : 3 à 20 caractères.");if(await DB.doc("pseudos/"+pseudoKey(v("rPseudo"))).get().then(s=>s.exists))throw new Error("Ce pseudo est déjà pris.");await finishProfile(AUTH.currentUser,{pseudo:v("rPseudo"),prenom:v("rPrenom"),chiens,...extra})}
       else await register({pseudo:v("rPseudo"),email:v("rMail"),pass:$("#rPass",m).value,prenom:v("rPrenom"),chiens,...extra});
