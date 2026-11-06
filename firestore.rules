@@ -182,5 +182,7 @@ service cloud.firestore {
       allow delete: if comptaEdit() || (comite() && wasMine());
     }
     match /cabane/{id}      { allow read, write: if comite(); }
+    // Archives du comité : PV, convocations, correspondance.
+    match /docscomite/{id}  { allow read, write: if comite(); }
   }
 }

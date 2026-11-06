@@ -326,3 +326,5 @@ img.qr-big{display:block;width:100%;max-width:340px;margin:8px auto 14px;backgro
 
 .vacc{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px}
 .vacc .chips{margin:0}
+
+.card.doc .row{align-items:center;gap:10px}

@@ -44,6 +44,7 @@ const COLS={
   cotisations:{},   // un document par compte : {paye:{"2026":true},date:{"2026":"2026-03-01"}}
   compta:{write:COMPTA_EDIT},ecritures:{write:COMPTA_EDIT},factures:{write:COMPTA_EDIT},notes:{write:COMITE},
   cabane:{write:COMITE},
+  docscomite:{write:COMITE}, // archives du comité : PV, convocations, correspondance
   fichiers:{},      // factures et tickets scannés
 };
 
@@ -272,7 +273,7 @@ function listenMembers(){
   sub("notifs",DB.collection("notifs").where("to","==",ME.uid));
   sub("convs",DB.collection("convs").where("p","array-contains",ME.uid));
   if(isComite()){
-    ["prives","cotisations","compta","ecritures","factures","notes","cabane"].forEach(c=>sub(c,DB.collection(c)));
+    ["prives","cotisations","compta","ecritures","factures","notes","cabane","docscomite"].forEach(c=>sub(c,DB.collection(c)));
   }else{
     subDoc("prives",DB.doc("prives/"+ME.uid));subDoc("cotisations",DB.doc("cotisations/"+ME.uid));
   }

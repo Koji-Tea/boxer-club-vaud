@@ -136,6 +136,12 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   r=await tryWrite(E,()=>firebase.firestore().doc('cotisations/'+firebase.auth().currentUser.uid).get());ok(r==='ok','adhérente voit sa propre cotisation');
   r=await tryWrite(E,()=>firebase.firestore().collection('notes').get());ok(r.includes('permission'),'adhérente ne voit pas la comptabilité');
   r=await tryWrite(E,()=>firebase.firestore().collection('cabane').get());ok(r.includes('permission'),'adhérente ne voit pas la cabane');
+  r=await tryWrite(E,()=>firebase.firestore().collection('docscomite').get());ok(r.includes('permission'),'adhérente ne voit pas les documents du comité');
+  await go(A,'#club/documents');await A.waitForTimeout(600);await A.click('#addDoc');await A.fill('#f_titre','PV assemblée');
+  await A.setInputFiles('[data-addfile=fichiers][multiple]',{name:'pv.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64')});await A.waitForTimeout(500);
+  await A.click('.sheet button.primary');await A.waitForTimeout(1500);
+  ok((await A.textContent('.v-club')).includes('PV assemblée'),'document du comité archivé avec son scan');
+  await go(E,'#club/documents');await E.waitForTimeout(500);ok(!(await E.$('#addDoc')),'onglet documents caché aux adhérents');
   r=await tryWrite(E,()=>firebase.firestore().collection('groupes').add({nom:'x',membres:[]}));ok(r.includes('permission'),'adhérente ne crée pas de groupe');
   await go(E,'#club/adherents');await E.waitForTimeout(1000);
   ok(!(await E.textContent('.v-club')).includes('@test.ch')&&!(await E.$('.adh-foot')),'adhérente ne voit ni e-mails ni cotisations');

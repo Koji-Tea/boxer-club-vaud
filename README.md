@@ -12,6 +12,7 @@ C’est une application web installable (PWA) : on l’ouvre dans le navigateur,
 | Moniteurs | Fiche de chaque moniteur·rice : photo, présentation, spécialités, brevets, ses prochains cours | Tout le monde |
 | Chiots & portées | Annonces de naissances par élevage : nombre de chiots, mâles/femelles, disponibles ou réservés, contact de l’élevage | Tout le monde |
 | Comptabilité | Soldes des comptes Club Boxer Vaud et Cabane, cotisations (70 CHF × payées), recettes et dépenses, factures scannées, notes de frais, archives et export par année | Comité seulement |
+| Documents du comité (onglet de Comité & adhérents) | PV, convocations, correspondance : scan ou PDF, classés par année et par type | Comité seulement |
 | Gestion cabane | Échéances (gaz, extincteur…), inventaire, travaux et frais, fournisseurs, clés, infos pratiques | Comité seulement |
 | Wiki du boxer | Questions / réponses (santé, chaleur, torsion d’estomac, éducation, démarches…), avec recherche | Tout le monde |
 | Contacts d’urgence | 144, 117, 118, 112, Tox Info 145, vétérinaire de garde, présidente, Boxer en détresse | Tout le monde |

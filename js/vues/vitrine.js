@@ -103,9 +103,9 @@ VIEWS.urgences={t:"Contacts d’urgence",r(){
 /* ---------- Comité & adhérents ---------- */
 const COM_FIELDS=[{k:"nom",l:"Nom",req:true},{k:"role",l:"Rôle",req:true},{k:"email",l:"E-mail",t:"email"},{k:"tel",l:"Téléphone",t:"tel"},{k:"photo",l:"Photo",t:"photo"},{k:"ordre",l:"Ordre d’affichage",t:"number"}];
 VIEWS.club={t:"Comité & adhérents",r(){
-  const tab=ARG==="adherents"?"adherents":"comite";
-  return`<div class="seg"><a href="#club" class="${tab==="comite"?"on":""}">Le comité</a><a href="#club/adherents" class="${tab==="adherents"?"on":""}">Adhérents</a></div>
-    ${tab==="comite"?comiteHTML():adherentsHTML()}`;
+  const tab=ARG==="adherents"?"adherents":ARG==="documents"&&isComite()?"documents":"comite";
+  return`<div class="seg"><a href="#club" class="${tab==="comite"?"on":""}">Le comité</a><a href="#club/adherents" class="${tab==="adherents"?"on":""}">Adhérents</a>${isComite()?`<a href="#club/documents" class="${tab==="documents"?"on":""}">${ico("shield")} Documents du comité</a>`:""}</div>
+    ${tab==="comite"?comiteHTML():tab==="adherents"?adherentsHTML():docsComiteHTML()}`;
 },bind(m){
   const ed=o=>{
     const lie=o.compte&&get("users",o.compte);
@@ -120,6 +120,7 @@ VIEWS.club={t:"Comité & adhérents",r(){
       remove:o.id&&(()=>del("comite",o.id))});
   };
   const a=$("#addCom",m);if(a)a.onclick=()=>ed({});
+  if(ARG==="documents")bindDocsComite(m);
   $$("[data-com]",m).forEach(b=>b.onclick=()=>ed(get("comite",b.dataset.com)));
   const q=$("#adhQ",m);if(q)q.oninput=()=>{const t=norm(q.value);$$(".adh",m).forEach(x=>x.hidden=t&&!norm(x.dataset.s).includes(t))};
   $$("[data-user]",m).forEach(b=>b.onclick=()=>userSheet(get("users",b.dataset.user)));
@@ -144,6 +145,33 @@ function roleSelect(u){
   return`<select class="role-sel" data-role-of="${esc(u.id)}" aria-label="Rôle de ${esc(u.pseudo)}">${ch.map(([r,l])=>`<option value="${r}"${u.role===r?" selected":""}>${l}</option>`).join("")}</select>`;
 }
 function bindRoleSelects(m){$$("[data-role-of]",m).forEach(s=>s.onchange=()=>{setRole(s.dataset.roleOf,s.value);toast("Rôle de "+((get("users",s.dataset.roleOf)||{}).pseudo||"")+" : "+ROLES[s.value].l)})}
+
+/* ---------- Documents du comité : PV, convocations, correspondance (comité seulement) ---------- */
+const DOC_TYPES=["PV","Convocation","Correspondance","Rapport","Contrat","Autre"];
+const DOC_FIELDS=[{k:"type",l:"Type",t:"select",o:DOC_TYPES,half:true},{k:"date",l:"Date du document",t:"date",req:true,half:true},
+  {k:"titre",l:"Titre",req:true,ph:"PV de l’assemblée générale, convocation du comité…"},
+  {k:"fichiers",l:"Document",t:"files",h:"Scanne chaque page avec l’appareil photo, ou joins le PDF."},{k:"remarque",l:"Remarque",t:"textarea",rows:2}];
+let DOC_AN=ls("bcv-docs-an")||"";
+function docsComiteHTML(){
+  const l=all("docscomite"),ans=[...new Set([anneeCotis(),...l.map(o=>String(o.date||"").slice(0,4)).filter(Boolean)])].sort().reverse();
+  const an=ans.includes(DOC_AN)?DOC_AN:ans[0],f=ls("bcv-docs-type")||"";
+  const q=l.filter(o=>String(o.date||"").startsWith(an)&&(!f||o.type===f)).sort((a,b)=>String(b.date).localeCompare(a.date));
+  return`<div class="row between wrap"><p class="small muted">${ico("shield")} Visible seulement par les membres du comité.</p>${addBtn("addDoc","Nouveau document")}</div>
+    <div class="row between wrap"><div class="seg">${[["","Tous"],...DOC_TYPES.map(t=>[t,t])].map(([k,n])=>`<button data-dtype="${k}" class="${f===k?"on":""}">${n} <span class="muted">${l.filter(o=>String(o.date||"").startsWith(an)&&(!k||o.type===k)).length||""}</span></button>`).join("")}</div>
+      <label class="small an-sel">Année <select id="docAn">${ans.map(a=>`<option${a===an?" selected":""}>${a}</option>`).join("")}</select></label></div>
+    ${q.length?`<div class="list">${q.map(o=>`<div class="card doc" data-doc="${esc(o.id)}"><div class="row"><span class="grow"><b>${esc(o.titre)}</b><br><span class="small muted">${esc(o.type||"")} · ${esc(fmtDayY(o.date))}</span></span>${editBtn("data-edoc",o.id)}</div>
+      ${o.remarque?`<p class="small">${rich(o.remarque)}</p>`:""}${fichiersHTML(o.fichiers)}</div>`).join("")}</div>`
+      :`<p class="muted">Aucun document${f?" de ce type":""} archivé pour ${an}.</p>`}`;
+}
+function bindDocsComite(m){
+  const ed=o=>editSheet(o.id?"Modifier le document":"Nouveau document",DOC_FIELDS,o,{wide:true,
+    save:v=>put("docscomite",{...o,...v,annee:v.date.slice(0,4),uid:o.uid||ME.uid}),remove:o.id&&(()=>{del("docscomite",o.id);supprimerFichiers(o.fichiers)})});
+  const a=$("#addDoc",m);if(a)a.onclick=()=>ed({type:"PV",date:today()});
+  $$("[data-edoc]",m).forEach(b=>b.onclick=()=>ed(get("docscomite",b.dataset.edoc)));
+  $$("[data-dtype]",m).forEach(b=>b.onclick=()=>{ls("bcv-docs-type",b.dataset.dtype);rerender()});
+  const s=$("#docAn",m);if(s)s.onchange=()=>{DOC_AN=s.value;ls("bcv-docs-an",DOC_AN);rerender()};
+  bindFichiers(m);
+}
 
 /* ---------- Cotisations (coche + date de paiement) ---------- */
 function cotisCtrl(u,an=anneeCotis()){
