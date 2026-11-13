@@ -299,7 +299,16 @@ img.qr-big{display:block;width:100%;max-width:340px;margin:8px auto 14px;backgro
 .chat-top{align-items:flex-start}
 .chat-top .seg{margin-bottom:8px}
 .grp-desc{margin:0 0 6px}
-.card.grp{align-items:center;gap:10px}
+.card.grp{display:flex;flex-direction:column;gap:10px}
+.grp-h{display:flex;gap:12px;align-items:flex-start}
+.grp-h>.ico{flex:none;margin-top:3px}
+.grp-h p{margin:4px 0 2px}
+.grp-a{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grp-a .btn{flex:1;justify-content:center}
+.grp-a .iconbtn,.grp-a [data-edg]{flex:none}
+@media (min-width:700px){.grp-a{justify-content:flex-end}.grp-a .btn{flex:none}}
+.mg{gap:2px}
+.mg-u{display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid var(--line)}
 @media (min-width:900px){.chat.dm{height:calc(100vh - 110px)}.chat.grp{height:calc(100vh - 210px)}}
 .bub .pre{font-weight:600;opacity:.75}
 

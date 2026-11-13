@@ -115,18 +115,25 @@ service cloud.firestore {
         && request.resource.data.pseudo == get(userPath(me())).data.pseudo;
       allow delete: if signedIn() && (wasMine() || comite());
     }
-    // Groupes de discussion : créés par le comité ; chacun·e rejoint ou quitte un groupe (seulement soi-même).
+    // Groupes de discussion : créés par le comité ; chacun·e rejoint ou quitte un groupe ouvert (seulement soi-même).
+    // Un groupe privé (prive == true) est caché : seuls ses membres le voient, et seul un membre du comité qui en fait partie
+    // y invite des personnes. L'administrateur·rice voit tous les groupes (pour supprimer un groupe abandonné), pas leurs messages.
     match /groupes/{g} {
+      function ouvert(d) { return d.get('prive', false) == false; }
+      function dedans(d) { return me() in d.membres; }
       function joinLeave() {
         let a = request.resource.data.membres.toSet();
         let b = resource.data.membres.toSet();
         return keys().hasOnly(['membres'])
-          && ((a.difference(b) == [me()].toSet() && b.difference(a).size() == 0)
+          && ((a.difference(b) == [me()].toSet() && b.difference(a).size() == 0 && ouvert(resource.data))
               || (b.difference(a) == [me()].toSet() && a.difference(b).size() == 0));
       }
-      allow read: if member();
-      allow create, delete: if comite();
-      allow update: if comite() || (member() && joinLeave());
+      allow get: if member() && (ouvert(resource.data) || dedans(resource.data) || isAdmin());
+      allow list: if member() && (resource.data.prive == false || dedans(resource.data) || isAdmin());
+      allow create: if comite() && (ouvert(request.resource.data) || dedans(request.resource.data));
+      allow delete: if comite() && (ouvert(resource.data) || dedans(resource.data) || isAdmin());
+      allow update: if (comite() && (ouvert(resource.data) || dedans(resource.data) || isAdmin()))
+        || (member() && joinLeave());
       // Le fil d'un groupe : lu et écrit par ses membres seulement.
       match /msgs/{m} {
         function inGroup() { return member() && me() in get(/databases/$(database)/documents/groupes/$(g)).data.membres; }

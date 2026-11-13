@@ -172,7 +172,8 @@ function demoData(){
     ],
     cotisations:[{id:"demo2",paye:{[an]:true},date:{[an]:d(-40)}}],
     prives:[{id:"demo1",email:"julien@exemple.ch",tel:"079 000 00 01"},{id:"demo2",email:"sophie@exemple.ch",tel:"079 000 00 02"},{id:"demo4",email:"tresorier@boxerclubvaud.ch"}],
-    groupes:[{nom:"Balades du dimanche",desc:"Pour organiser les balades entre membres.",membres:["demo1","demo2"],uid:"local"}],
+    groupes:[{nom:"Balades du dimanche",desc:"Pour organiser les balades entre membres.",membres:["demo1","demo2"],uid:"local",prive:false},
+      {nom:"Comité",desc:"Réservé aux membres du comité.",membres:["local"],uid:"local",prive:true}],
     compta:[{id:an,club:8420.5,cabane:2310,majLe:d(-3)}],
     ecritures:[{annee:an,date:d(-60),libelle:"Vente de vêtements",cat:"Vente vêtements",compte:"club",sens:"recette",montant:340},
       {annee:an,date:d(-20),libelle:"Assurance RC du club",cat:"Assurances",compte:"club",sens:"depense",montant:480}],
@@ -269,7 +270,15 @@ function listenMembers(){
   sub("inscriptions",DB.collection("inscriptions"));
   sub("messages",DB.collection("messages").orderBy("at","desc").limit(200));
   // Groupes : on écoute aussi le fil des groupes rejoints, pour signaler les nouveaux messages.
-  unsubs.push(DB.collection("groupes").onSnapshot(s=>{S.groupes=new Map(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));all("groupes").filter(dansGroupe).forEach(g=>watchGroupe(g.id));changed()},e=>console.warn("groupes",e.code)));
+  // Groupes privés : invisibles sauf pour leurs membres. On écoute donc les groupes ouverts et ceux dont on fait partie
+  // (l'administrateur·rice voit tout, pour pouvoir supprimer un groupe abandonné).
+  const gq=isAdmin()?[DB.collection("groupes")]:[DB.collection("groupes").where("prive","==",false),DB.collection("groupes").where("membres","array-contains",ME.uid)];
+  const gm=gq.map(()=>new Map());
+  gq.forEach((q,i)=>unsubs.push(q.onSnapshot(s=>{gm[i]=new Map(s.docs.map(d=>[d.id,{...d.data(),id:d.id}]));
+    S.groupes=new Map(gm.flatMap(m=>[...m]));all("groupes").filter(dansGroupe).forEach(g=>watchGroupe(g.id));
+    // Anciens groupes (créés avant les groupes privés) : on les marque « ouverts » pour que tout le monde les voie.
+    if(isAdmin())all("groupes").filter(g=>g.prive===undefined).forEach(g=>{g.prive=false;DB.doc("groupes/"+g.id).update({prive:false}).catch(e=>console.warn(e.code))});
+    changed()},e=>console.warn("groupes",e.code))));
   sub("notifs",DB.collection("notifs").where("to","==",ME.uid));
   sub("convs",DB.collection("convs").where("p","array-contains",ME.uid));
   if(isComite()){
@@ -444,8 +453,17 @@ async function delAt(col,path,id){
 }
 
 /* ---------- Groupes de discussion ----------
-   Le comité crée les groupes ; chacun·e les rejoint ou les quitte. Seuls les membres d'un groupe en lisent le fil. */
+   Le comité crée les groupes ; chacun·e rejoint ou quitte un groupe ouvert. Un groupe privé est caché :
+   seul·es ses membres le voient, et un membre du comité qui en fait partie y invite les autres. Seuls les membres d'un groupe en lisent le fil. */
 const dansGroupe=g=>!!ME&&!!g&&(g.membres||[]).includes(ME.uid);
+const groupeVisible=g=>!g.prive||dansGroupe(g);
+const gereGroupe=g=>isComite()&&(!g.prive||dansGroupe(g)||isAdmin());
+async function setMembresGroupe(g,membres){
+  const avant=new Set(g.membres||[]);
+  const n=await put("groupes",{...g,membres});
+  membres.filter(u=>!avant.has(u)&&u!==ME.uid).forEach(u=>notifier(u,"Invitation au groupe « "+g.nom+" »",(ME.pseudo||"Le comité")+" t’a ajouté·e au groupe"+(g.prive?" privé":"")+" « "+g.nom+" ».","#tchat/"+g.id));
+  return n;
+}
 function watchGroupe(gid){const g=get("groupes",gid);if(dansGroupe(g))dynSub("g:"+gid,"gmsgs",DB.collection("groupes").doc(gid).collection("msgs").orderBy("at","desc").limit(200))}
 async function rejoindreGroupe(g,on){
   const m=new Set(g.membres||[]);on?m.add(ME.uid):m.delete(ME.uid);

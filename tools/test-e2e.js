@@ -168,6 +168,17 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   ok(r==='ok','le comité gère les membres d’un groupe');
   r=await E.evaluate(async([g,u])=>{try{await firebase.firestore().doc('groupes/'+g).update({membres:firebase.firestore.FieldValue.arrayRemove(u)});return 'ok'}catch(e){return String(e.message).toLowerCase()}},[gid,bUid]);
   ok(r.includes('permission'),'on ne retire pas quelqu’un d’autre d’un groupe');
+  // Groupe privé (caché, sur invitation)
+  const pid=await D.evaluate(async me=>{const n=await put('groupes',{nom:'Comité secret',prive:true,membres:[me],uid:me});return n.id},dUid);
+  await E.waitForTimeout(1500);
+  ok(await E.evaluate(p=>!get('groupes',p),pid),'groupe privé invisible pour une adhérente non invitée');
+  r=await tryWrite(E,()=>firebase.firestore().collection('groupes').get());ok(r!=='ok','liste complète des groupes refusée (groupes privés protégés)');
+  r=await E.evaluate(async([g,u])=>{try{await firebase.firestore().doc('groupes/'+g).update({membres:firebase.firestore.FieldValue.arrayUnion(u)});return 'ok'}catch(e){return String(e.message).toLowerCase()}},[pid,eUid]);
+  ok(r!=='ok','on ne s’invite pas soi-même dans un groupe privé');
+  await D.evaluate(async([p,u])=>{await setMembresGroupe(get('groupes',p),[...get('groupes',p).membres,u])},[pid,eUid]);await E.waitForTimeout(2000);
+  ok(await E.evaluate(p=>!!get('groupes',p)&&mesNotifs().some(n=>n.titre.includes('Comité secret')),pid),'invitée : le groupe privé apparaît, avec une notification');
+  await go(E,'#tchat');await E.click('#grpBtn');await E.waitForTimeout(400);ok((await E.textContent('.sheet')).includes('Privé'),'groupe privé marqué dans la liste');await E.evaluate(()=>closeSheet());
+  ok(await E.evaluate(g=>!!get('groupes',g),gid),'groupes ouverts toujours visibles');
   // Messages privés
   await go(E,'#boite/m/'+dUid);await E.waitForTimeout(800);await E.fill('#dmIn','Bonjour Cleo');await E.click('#dmForm button');await E.waitForTimeout(1500);
   await D.waitForTimeout(500);ok(await D.evaluate(()=>all('convs').some(convNonLue)),'message privé reçu (non lu)');

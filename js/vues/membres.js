@@ -29,10 +29,11 @@ const tchatForme=()=>{const g=ARG&&get("groupes",ARG);return[isMember(),ARG,isMe
 VIEWS.tchat={t:"Tchat des membres",r(){
   const lock=membersOnly("Le tchat");if(lock)return lock;
   const g=ARG&&get("groupes",ARG);
-  const mine=all("groupes").filter(dansGroupe).sort(byNom),autres=all("groupes").length-mine.length;
+  const mine=all("groupes").filter(dansGroupe).sort(byNom),autres=all("groupes").filter(g=>!dansGroupe(g)&&!g.prive).length;
   const bar=`<div class="row between wrap chat-top"><div class="seg">${[["","Général",!g],...mine.map(x=>[x.id,x.nom,g&&g.id===x.id])].map(([id,l,on])=>`<a href="#tchat${id?"/"+esc(id):""}" class="${on?"on":""}">${esc(l)}${on?"":dotNL(nonLusCanal(id))}</a>`).join("")}</div>
     <button class="btn sm" id="grpBtn">${ico("group")} Groupes${autres?` <em class="pill">${autres}</em>`:""}</button></div>`;
   if(ARG&&!g)return bar+`<p class="muted">Ce groupe n’existe plus.</p>`;
+  if(g&&!dansGroupe(g)&&g.prive)return bar+`<p class="muted">${ico("lock")} Ce groupe est privé : il faut y être invité·e par le comité.</p>`;
   if(g&&!dansGroupe(g))return bar+`<div class="card lock">${ico("group")}<h3>${esc(g.nom)}</h3>${g.desc?`<p>${rich(g.desc)}</p>`:""}<p class="small muted">${(g.membres||[]).length} membre(s)</p><button class="btn primary" id="joinG">Rejoindre le groupe</button></div>`;
   return bar+`${g?`<p class="small muted grp-desc">${g.desc?esc(g.desc)+" · ":""}${(g.membres||[]).length} membre(s) · <button class="lnk" id="grpInfo">voir le groupe</button></p>`:""}
     <div class="chat${g?" grp":""}"><div id="chatList" class="chat-list" aria-live="polite"></div>
@@ -61,27 +62,48 @@ VIEWS.tchat={t:"Tchat des membres",r(){
   fillChat($("#chatList",m),list,first,()=>"",x=>x.uid===ME.uid||isComite(),x=>g?delGroupeMsg(x):del("messages",x.id),g?"Aucun message dans ce groupe. Lance la discussion !":"Aucun message pour l’instant. Lance la discussion !");
 }};
 function groupesSheet(){
-  const l=all("groupes").sort(byNom);
-  const s=sheet("Groupes de discussion",`<p class="small muted">Rejoins un groupe pour lire et écrire dans son fil, comme un groupe WhatsApp. Le comité crée les groupes.</p>
+  const l=all("groupes").filter(g=>groupeVisible(g)||isAdmin()).sort((a,b)=>dansGroupe(b)-dansGroupe(a)||byNom(a,b));
+  const s=sheet("Groupes de discussion",`<p class="small muted">Rejoins un groupe pour lire et écrire dans son fil, comme un groupe WhatsApp. Le comité crée les groupes. ${ico("lock")} Un groupe privé est caché : seules les personnes invitées le voient.</p>
     ${isComite()?`<div class="row end">${addBtn("newG","Nouveau groupe")}</div>`:""}
-    ${l.length?`<div class="list">${l.map(g=>`<div class="card row wrap grp">${ico("group")}<span class="grow"><b>${esc(g.nom)}</b><br><span class="small muted">${g.desc?esc(g.desc)+" · ":""}${(g.membres||[]).length} membre(s)</span></span>
-      ${dansGroupe(g)?`<a class="btn sm" href="#tchat/${esc(g.id)}">Ouvrir</a><button class="btn sm ghost" data-quit="${esc(g.id)}">Quitter</button>`:`<button class="btn sm primary" data-join="${esc(g.id)}">Rejoindre</button>`}
-      ${isComite()?editBtn("data-edg",g.id):""}</div>`).join("")}</div>`:`<p class="muted">Aucun groupe pour l’instant.</p>`}`);
-  const b=$("#newG",s);if(b)b.onclick=()=>editGroupe({});
+    ${l.length?`<div class="list">${l.map(g=>`<div class="card grp"><div class="grp-h">${ico(g.prive?"lock":"group")}<div class="grow"><b>${esc(g.nom)}</b>${g.prive?` <span class="badge">Privé</span>`:""}
+        ${g.desc?`<p class="small">${esc(g.desc)}</p>`:""}<span class="small muted">${(g.membres||[]).length} membre(s)${g.prive&&!dansGroupe(g)?" · tu n’es pas dans ce groupe":""}</span></div></div>
+      <div class="grp-a">${dansGroupe(g)?`<a class="btn sm primary" href="#tchat/${esc(g.id)}">Ouvrir</a><button class="btn sm" data-quit="${esc(g.id)}">Quitter</button>`:g.prive?"":`<button class="btn sm primary" data-join="${esc(g.id)}">Rejoindre</button>`}
+      ${gereGroupe(g)?editBtn("data-edg",g.id):""}</div></div>`).join("")}</div>`:`<p class="muted">Aucun groupe pour l’instant.</p>`}`);
+  const b=$("#newG",s);if(b)b.onclick=()=>editGroupe({prive:false});
   $$("[data-join]",s).forEach(x=>x.onclick=async()=>{const g=get("groupes",x.dataset.join);await rejoindreGroupe(g,true);closeSheet();location.hash="#tchat/"+g.id;toast("Bienvenue dans « "+g.nom+" »")});
   $$("[data-quit]",s).forEach(x=>x.onclick=async()=>{const g=get("groupes",x.dataset.quit);await rejoindreGroupe(g,false);if(ARG===g.id)location.hash="#tchat";groupesSheet()});
   $$("[data-edg]",s).forEach(x=>x.onclick=()=>editGroupe(get("groupes",x.dataset.edg)));
 }
 function groupeSheet(g){
   const mem=(g.membres||[]).map(id=>get("users",id)).filter(Boolean).sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo));
-  const s=sheet(g.nom,`${g.desc?`<p>${rich(g.desc)}</p>`:""}<h3>Membres (${mem.length})</h3><div class="chips">${mem.map(u=>`<span class="chip">${avatar(u.pseudo,u.photo,"xs")} ${esc(u.pseudo)}</span>`).join("")}</div>
-    <div class="row wrap end">${isComite()?`<button class="btn ghost" id="edG">${ico("edit")} Modifier</button>`:""}<button class="btn" id="quitG">Quitter le groupe</button></div>`);
+  const s=sheet(g.nom,`${g.prive?`<p class="small muted">${ico("lock")} Groupe privé : caché pour les personnes qui n’y sont pas invitées.</p>`:""}${g.desc?`<p>${rich(g.desc)}</p>`:""}<h3>Membres (${mem.length})</h3><div class="chips">${mem.map(u=>`<span class="chip">${avatar(u.pseudo,u.photo,"xs")} ${esc(u.pseudo)}</span>`).join("")}</div>
+    <div class="row wrap end">${gereGroupe(g)?`<button class="btn ghost" id="edG">${ico("edit")} Modifier</button><button class="btn" id="invG">${ico("group")} Membres</button>`:""}<button class="btn" id="quitG">Quitter le groupe</button></div>`);
   $("#quitG",s).onclick=async()=>{closeSheet();await rejoindreGroupe(g,false);location.hash="#tchat"};
   const e=$("#edG",s);if(e)e.onclick=()=>editGroupe(g);
+  const i=$("#invG",s);if(i)i.onclick=()=>membresGroupe(g);
+}
+// Choisir les membres d'un groupe (invitations) : cases à cocher, avec un raccourci « tout le comité ».
+function membresGroupe(g){
+  const us=all("users").filter(u=>MEMBERS.includes(u.role)).sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo));
+  const cur=new Set(g.membres||[]);
+  const s=sheet("Membres de « "+g.nom+" »",`<p class="small muted">${g.prive?"Coche les personnes invitées : elles seules verront ce groupe. ":""}Les personnes ajoutées reçoivent une notification.</p>
+    <div class="row wrap"><button type="button" class="btn sm" id="mgCom">${ico("shield")} Tout le comité</button><button type="button" class="btn sm ghost" id="mgNone">Personne</button></div>
+    <div class="list mg">${us.map(u=>`<label class="chk mg-u"><input type="checkbox" value="${esc(u.id)}"${cur.has(u.id)?" checked":""}${u.id===ME.uid?" disabled":""}> ${avatar(u.pseudo,u.photo,"xs")} <span class="grow">${esc(u.pseudo)}${u.prenom?` <span class="muted">${esc(u.prenom)}</span>`:""}</span> <span class="small muted">${esc((ROLES[u.role]||{}).l||"")}</span></label>`).join("")}</div>
+    <div class="row end"><button class="btn primary" id="mgOk">Enregistrer</button></div>`,{wide:true});
+  const boxes=$$(".mg input",s);
+  $("#mgCom",s).onclick=()=>boxes.forEach(b=>{if(COMITE.includes((get("users",b.value)||{}).role))b.checked=true});
+  $("#mgNone",s).onclick=()=>boxes.forEach(b=>{if(!b.disabled)b.checked=false});
+  $("#mgOk",s).onclick=async()=>{const m=boxes.filter(b=>b.checked||b.disabled&&cur.has(b.value)).map(b=>b.value);
+    if(g.prive&&!m.includes(ME.uid)&&!isAdmin())m.push(ME.uid);
+    try{await setMembresGroupe(g,m);closeSheet();toast("Membres du groupe enregistrés")}catch(e){toast(e.message||"Enregistrement impossible","bad")}};
 }
 function editGroupe(o){
-  editSheet(o.id?"Modifier le groupe":"Nouveau groupe",[{k:"nom",l:"Nom du groupe",req:true,ph:"Balades du dimanche, Concours FAC…"},{k:"desc",l:"Description",t:"textarea",rows:2}],o,{
-    save:async v=>{const n=await put("groupes",{...o,...v,membres:o.membres||[ME.uid],uid:o.uid||ME.uid});if(!o.id)setTimeout(()=>location.hash="#tchat/"+n.id,50)},
+  editSheet(o.id?"Modifier le groupe":"Nouveau groupe",[{k:"nom",l:"Nom du groupe",req:true,ph:"Balades du dimanche, Concours FAC…"},{k:"desc",l:"Description",t:"textarea",rows:2},
+    {k:"prive",l:"Groupe privé : caché, seulement sur invitation",t:"check"}],o,{
+    save:async v=>{const membres=[...new Set([...(o.membres||[]),...(v.prive&&!o.id||!o.membres?[ME.uid]:[])])];
+      const n=await put("groupes",{...o,...v,prive:!!v.prive,membres,uid:o.uid||ME.uid});
+      if(v.prive&&!o.prive)setTimeout(()=>{membresGroupe(get("groupes",n.id)||n);toast("Groupe privé : choisis les personnes invitées")},80);
+      else if(!o.id)setTimeout(()=>location.hash="#tchat/"+n.id,50)},
     remove:o.id&&(async()=>{closeSheet();await del("groupes",o.id);location.hash="#tchat"})});
 }
 
