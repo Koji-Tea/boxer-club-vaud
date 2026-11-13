@@ -396,7 +396,12 @@ async function savePrive(p){
   if(MODE==="cloud"){try{await DB.doc("prives/"+ME.uid).set(clean(o),{merge:true})}catch(e){dbErr(e)}}else saveLocal();
 }
 /* ---------- Cotisations ---------- */
-const anneeCotis=()=>String(new Date().getFullYear());
+// Année fiscale du club : du 1er octobre au 30 septembre. Elle porte le nom de l'année où elle commence
+// (« 2025 » = 1.10.2025 – 30.9.2026) et s'affiche « 2025 - 2026 ».
+const exoDe=d=>{const s=String(d||"");if(!/^\d{4}-\d{2}/.test(s))return s.slice(0,4);const y=+s.slice(0,4);return String(+s.slice(5,7)>=10?y:y-1)};
+const labelAn=an=>/^\d{4}$/.test(String(an))?`${an} - ${+an+1}`:String(an||"");
+const debutAn=an=>an+"-10-01",finAn=an=>(+an+1)+"-09-30";
+const anneeCotis=()=>exoDe(today());
 const cotisPayee=(uid,an=anneeCotis())=>!!((get("cotisations",uid)||{}).paye||{})[an];
 const cotisDate=(uid,an=anneeCotis())=>((get("cotisations",uid)||{}).date||{})[an]||"";
 const montantCotis=()=>Number(CFG.cotisation)||70;

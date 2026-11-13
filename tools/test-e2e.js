@@ -142,6 +142,14 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   await A.click('.sheet button.primary');await A.waitForTimeout(1500);
   ok((await A.textContent('.v-club')).includes('PV assemblée'),'document du comité archivé avec son scan');
   await go(E,'#club/documents');await E.waitForTimeout(500);ok(!(await E.$('#addDoc')),'onglet documents caché aux adhérents');
+  // Année fiscale (octobre à septembre) et clôture fiscale
+  ok(await A.evaluate(()=>exoDe('2026-09-30')==='2025'&&exoDe('2026-10-01')==='2026'&&labelAn('2025')==='2025 - 2026'),'année fiscale du 1er octobre au 30 septembre');
+  await A.evaluate(()=>put('ecritures',{sens:'recette',compte:'club',date:'2026-03-15',montant:100,libelle:'Vente test',annee:'2026'}));
+  await go(A,'#compta');await A.waitForTimeout(800);await A.selectOption('#cAn','2025');await A.waitForTimeout(600);
+  ok((await A.textContent('main')).includes('Exercice 2025 - 2026'),'compta affichée par exercice 2025 - 2026');
+  await A.click('#clore2');await A.waitForTimeout(400);await A.click('#cfOk');await A.waitForTimeout(2500);
+  ok(await A.evaluate(()=>!!(get('compta','2025')||{}).cloture),'clôture fiscale enregistrée');
+  ok(await A.evaluate(()=>all('docscomite').some(d=>d.titre==='Clôture fiscale 2025 - 2026'&&(d.fichiers||[]).length===1)),'clôture archivée dans les documents du comité, avec le tableur');
   r=await tryWrite(E,()=>firebase.firestore().collection('groupes').add({nom:'x',membres:[]}));ok(r.includes('permission'),'adhérente ne crée pas de groupe');
   await go(E,'#club/adherents');await E.waitForTimeout(1000);
   ok(!(await E.textContent('.v-club')).includes('@test.ch')&&!(await E.$('.adh-foot')),'adhérente ne voit ni e-mails ni cotisations');
@@ -153,6 +161,10 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   ok((await E.textContent('.dogs')).includes('Vacciné'),'chien noté vacciné');
   r=await A.evaluate(async u=>{const c=(get('users',u).chiens||[]).find(x=>x.nom==='Rex');const f=c&&c.carnet&&c.carnet[0]&&await getFichier(c.carnet[0].id);return f?f.data.slice(0,10):'rien'},eUid);
   ok(r.startsWith('data:image'),'carnet de vaccination visible par le comité');
+  const carnetId=await E.evaluate(()=>{const c=(ME.chiens||[]).find(x=>x.nom==='Rex');return c.carnet[0].id});
+  await E.evaluate(id=>voirFichier(id),carnetId);await E.waitForTimeout(800);
+  const [dl]=await Promise.all([E.waitForEvent('download',{timeout:5000}).catch(()=>null),E.click('.sheet [data-fdl]')]);
+  ok(!!dl&&/carnet/.test(dl.suggestedFilename()),'la personne qui a ajouté le carnet peut le télécharger');await E.evaluate(()=>closeSheet());
   // Groupes
   await go(A,'#tchat');await A.click('#grpBtn');await A.click('#newG');await A.fill('#f_nom','Balades');await A.click('.sheet button.primary');await A.waitForTimeout(1500);
   const gid=await A.evaluate(()=>all('groupes')[0].id);

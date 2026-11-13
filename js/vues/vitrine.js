@@ -147,25 +147,25 @@ function roleSelect(u){
 function bindRoleSelects(m){$$("[data-role-of]",m).forEach(s=>s.onchange=()=>{setRole(s.dataset.roleOf,s.value);toast("Rôle de "+((get("users",s.dataset.roleOf)||{}).pseudo||"")+" : "+ROLES[s.value].l)})}
 
 /* ---------- Documents du comité : PV, convocations, correspondance (comité seulement) ---------- */
-const DOC_TYPES=["PV","Convocation","Correspondance","Rapport","Contrat","Autre"];
+const DOC_TYPES=["PV","Convocation","Correspondance","Rapport","Contrat","Clôture comptable","Autre"];
 const DOC_FIELDS=[{k:"type",l:"Type",t:"select",o:DOC_TYPES,half:true},{k:"date",l:"Date du document",t:"date",req:true,half:true},
   {k:"titre",l:"Titre",req:true,ph:"PV de l’assemblée générale, convocation du comité…"},
   {k:"fichiers",l:"Document",t:"files",h:"Scanne chaque page avec l’appareil photo, ou joins le PDF."},{k:"remarque",l:"Remarque",t:"textarea",rows:2}];
 let DOC_AN=ls("bcv-docs-an")||"";
 function docsComiteHTML(){
-  const l=all("docscomite"),ans=[...new Set([anneeCotis(),...l.map(o=>String(o.date||"").slice(0,4)).filter(Boolean)])].sort().reverse();
+  const l=all("docscomite"),ans=[...new Set([anneeCotis(),...l.map(o=>exoDe(o.date)).filter(Boolean)])].sort().reverse();
   const an=ans.includes(DOC_AN)?DOC_AN:ans[0],f=ls("bcv-docs-type")||"";
-  const q=l.filter(o=>String(o.date||"").startsWith(an)&&(!f||o.type===f)).sort((a,b)=>String(b.date).localeCompare(a.date));
+  const q=l.filter(o=>exoDe(o.date)===an&&(!f||o.type===f)).sort((a,b)=>String(b.date).localeCompare(a.date));
   return`<div class="row between wrap"><p class="small muted">${ico("shield")} Visible seulement par les membres du comité.</p>${addBtn("addDoc","Nouveau document")}</div>
-    <div class="row between wrap"><div class="seg">${[["","Tous"],...DOC_TYPES.map(t=>[t,t])].map(([k,n])=>`<button data-dtype="${k}" class="${f===k?"on":""}">${n} <span class="muted">${l.filter(o=>String(o.date||"").startsWith(an)&&(!k||o.type===k)).length||""}</span></button>`).join("")}</div>
-      <label class="small an-sel">Année <select id="docAn">${ans.map(a=>`<option${a===an?" selected":""}>${a}</option>`).join("")}</select></label></div>
+    <div class="row between wrap"><div class="seg">${[["","Tous"],...DOC_TYPES.map(t=>[t,t])].map(([k,n])=>`<button data-dtype="${k}" class="${f===k?"on":""}">${n} <span class="muted">${l.filter(o=>exoDe(o.date)===an&&(!k||o.type===k)).length||""}</span></button>`).join("")}</div>
+      <label class="small an-sel">Année <select id="docAn">${ans.map(a=>`<option value="${a}"${a===an?" selected":""}>${labelAn(a)}</option>`).join("")}</select></label></div>
     ${q.length?`<div class="list">${q.map(o=>`<div class="card doc" data-doc="${esc(o.id)}"><div class="row"><span class="grow"><b>${esc(o.titre)}</b><br><span class="small muted">${esc(o.type||"")} · ${esc(fmtDayY(o.date))}</span></span>${editBtn("data-edoc",o.id)}</div>
       ${o.remarque?`<p class="small">${rich(o.remarque)}</p>`:""}${fichiersHTML(o.fichiers)}</div>`).join("")}</div>`
-      :`<p class="muted">Aucun document${f?" de ce type":""} archivé pour ${an}.</p>`}`;
+      :`<p class="muted">Aucun document${f?" de ce type":""} archivé pour ${labelAn(an)}.</p>`}`;
 }
 function bindDocsComite(m){
   const ed=o=>editSheet(o.id?"Modifier le document":"Nouveau document",DOC_FIELDS,o,{wide:true,
-    save:v=>put("docscomite",{...o,...v,annee:v.date.slice(0,4),uid:o.uid||ME.uid}),remove:o.id&&(()=>{del("docscomite",o.id);supprimerFichiers(o.fichiers)})});
+    save:v=>put("docscomite",{...o,...v,annee:exoDe(v.date),uid:o.uid||ME.uid}),remove:o.id&&(()=>{del("docscomite",o.id);supprimerFichiers(o.fichiers)})});
   const a=$("#addDoc",m);if(a)a.onclick=()=>ed({type:"PV",date:today()});
   $$("[data-edoc]",m).forEach(b=>b.onclick=()=>ed(get("docscomite",b.dataset.edoc)));
   $$("[data-dtype]",m).forEach(b=>b.onclick=()=>{ls("bcv-docs-type",b.dataset.dtype);rerender()});
@@ -176,8 +176,8 @@ function bindDocsComite(m){
 /* ---------- Cotisations (coche + date de paiement) ---------- */
 function cotisCtrl(u,an=anneeCotis()){
   const ok=cotisPayee(u.id,an),dt=cotisDate(u.id,an);
-  if(!isCotisEdit())return`<span class="badge ${ok?"good":"bad"}">${ok?`${ico("check")} Cotisation ${an} payée${dt?" le "+esc(fmtDayY(dt)):""}`:`Cotisation ${an} pas encore payée`}</span>`;
-  return`<label class="chk"><input type="checkbox" data-cotis="${esc(u.id)}" data-an="${an}"${ok?" checked":""}> Cotisation membre Boxer Club Vaud ${an} payée</label>
+  if(!isCotisEdit())return`<span class="badge ${ok?"good":"bad"}">${ok?`${ico("check")} Cotisation ${labelAn(an)} payée${dt?" le "+esc(fmtDayY(dt)):""}`:`Cotisation ${labelAn(an)} pas encore payée`}</span>`;
+  return`<label class="chk"><input type="checkbox" data-cotis="${esc(u.id)}" data-an="${an}"${ok?" checked":""}> Cotisation membre Boxer Club Vaud ${labelAn(an)} payée</label>
     <label class="small cotis-date">le <input type="date" data-cotisdate="${esc(u.id)}" data-an="${an}" value="${esc(dt)}"${ok?"":" disabled"}></label>`;
 }
 function bindCotis(m){
@@ -208,7 +208,7 @@ function adherentsHTML(){
   const nb=com?list.filter(u=>cotisPayee(u.id)).length:0;
   const shown=list.filter(u=>f==="tous"||(f==="paye")===cotisPayee(u.id));
   return`${info}${qr}<p class="muted">${list.length} membre${list.length>1?"s":""} et adhérent·es inscrit·es dans l’app.</p>
-    ${com?`<div class="banner info cotis">${ico("check")}<div><b>Cotisations ${an} : ${nb} sur ${list.length} payée${nb>1?"s":""}.</b><br><span class="small">Contacts et cotisations : visibles seulement par le comité.</span></div></div>
+    ${com?`<div class="banner info cotis">${ico("check")}<div><b>Cotisations ${labelAn(an)} : ${nb} sur ${list.length} payée${nb>1?"s":""}.</b><br><span class="small">Contacts et cotisations : visibles seulement par le comité.</span></div></div>
       <div class="seg">${[["tous","Tous"],["paye","Cotisation payée"],["non","Pas encore payée"]].map(([k,l])=>`<button data-adhf="${k}" class="${f===k?"on":""}">${l}</button>`).join("")}</div>`:""}
     <div class="search">${ico("search")}<input id="adhQ" type="search" placeholder="Chercher un pseudo, un prénom, un chien…"></div>
     <div class="list">${shown.map(u=>`<div class="card adh" data-s="${esc([u.pseudo,u.prenom,u.chien,com?priveDe(u.id).email:""].join(" "))}">${userRow(u)}${com?`<div class="adh-foot">${cotisCtrl(u,an)}</div>`:""}</div>`).join("")}</div>`;

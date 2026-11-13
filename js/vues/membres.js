@@ -123,7 +123,7 @@ VIEWS.compte={t:"Mon compte",r(){
     ${ME.role==="attente"?`<div class="banner info">${ico("clock")}<div>Ton compte attend la validation du comité. Tu pourras ensuite t’inscrire aux cours et utiliser le tchat.</div></div>`:""}
     <h2 class="h">Mon adhésion</h2>
     <div class="card"><p>${[ME.bcv?"Adhérent·e Boxer Club Vaud":"",ME.bcs?"Adhérent·e Boxer Club Suisse":""].filter(Boolean).join(" · ")||`<span class="muted">Adhésion pas encore indiquée (Modifier mon profil).</span>`}</p>
-      ${S.cotisations.has(ME.uid)||isComite()?`<p class="small">Cotisation ${anneeCotis()} : ${cotisPayee(ME.uid)?`<b>payée</b>${cotisDate(ME.uid)?" le "+esc(fmtDayY(cotisDate(ME.uid))):""} ✔`:"pas encore enregistrée par le comité."}</p>`:""}
+      ${S.cotisations.has(ME.uid)||isComite()?`<p class="small">Cotisation ${labelAn(anneeCotis())} : ${cotisPayee(ME.uid)?`<b>payée</b>${cotisDate(ME.uid)?" le "+esc(fmtDayY(cotisDate(ME.uid))):""} ✔`:"pas encore enregistrée par le comité."}</p>`:""}
       ${qrSrc()?`<button class="btn sm" data-qr>${ico("qr")} QR code pour payer mon adhésion</button>`:""}</div>
     <div class="row between"><h2 class="h">Mes chiens</h2><button class="btn sm" id="addDog">${ico("plus")} Ajouter un chien</button></div>
     ${(ME.chiens||[]).length?`<div class="dogs edit">${ME.chiens.map((c,i)=>`<button class="card dog" data-dog="${i}">${avatar(c.nom,c.photo,"lg")}<div class="grow"><b>${esc(c.nom)}</b>

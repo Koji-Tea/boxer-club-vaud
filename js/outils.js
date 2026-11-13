@@ -63,6 +63,7 @@ const ICONS={
   check:'<path d="M5 12l5 5 9-10"/>',
   x:'<path d="M6 6l12 12M18 6L6 18"/>',
   lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
   shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
   ext:'<path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
@@ -148,9 +149,10 @@ function editSheet(title,fields,o,{save,remove,wide}={}){
     try{for(const f of fields)if(f.t==="files")v[f.k]=await envoyerFichiers(v[f.k]);await save(v);closeSheet()}catch(err){toast(err.message||"Enregistrement impossible","bad")}finally{btn.disabled=false}});
   // Documents joints (factures, tickets) : liste, ajout par photo ou fichier, retrait.
   const drawFiles=k=>{const h=form.elements[k],l=JSON.parse(h.value||"[]"),box=$(`[data-fl="${k}"]`,form);
-    box.innerHTML=l.length?l.map((x,i)=>`<span class="chip">${x.id?`<button type="button" class="lnk" data-viewfile="${esc(x.id)}">${ico(x.type==="application/pdf"?"file":"camera")} ${esc(x.nom)}</button>`:`${ico(x.type==="application/pdf"?"file":"camera")} ${esc(x.nom)}`}<button type="button" class="x" data-rmfile="${i}" aria-label="Retirer">×</button></span>`).join(""):`<span class="small muted">Aucun document joint.</span>`;
+    box.innerHTML=l.length?l.map((x,i)=>`<span class="chip">${x.id?`<button type="button" class="lnk" data-viewfile="${esc(x.id)}">${ico(x.type==="application/pdf"?"file":"camera")} ${esc(x.nom)}</button>`:`<button type="button" class="lnk" data-viewtmp="${esc(x.tmp)}">${ico(x.type==="application/pdf"?"file":"camera")} ${esc(x.nom)}</button>`}<button type="button" class="x" data-rmfile="${i}" aria-label="Retirer">×</button></span>`).join(""):`<span class="small muted">Aucun document joint.</span>`;
     $$("[data-rmfile]",box).forEach(b=>b.onclick=()=>{l.splice(+b.dataset.rmfile,1);h.value=JSON.stringify(l);drawFiles(k)});
     $$("[data-viewfile]",box).forEach(b=>b.onclick=()=>voirFichier(b.dataset.viewfile,true));
+    $$("[data-viewtmp]",box).forEach(b=>b.onclick=()=>voirFichier(b.dataset.viewtmp,true));
   };
   fields.filter(f=>f.t==="files").forEach(f=>drawFiles(f.k));
   $$("[data-addfile]",form).forEach(inp=>inp.addEventListener("change",async()=>{
@@ -172,13 +174,38 @@ const fichiersHTML=l=>(l||[]).length?`<div class="chips">${l.map(x=>`<button cla
 function bindFichiers(root){$$("[data-viewfile]",root).forEach(b=>b.onclick=e=>{e.stopPropagation();voirFichier(b.dataset.viewfile)})}
 // Ouvre un document dans une petite fenêtre, avec un bouton pour le télécharger. over = par-dessus un formulaire ouvert.
 async function voirFichier(id,over){
-  let f=null;try{f=await getFichier(id)}catch(e){}
+  let f=PENDING[id]||null;if(!f)try{f=await getFichier(id)}catch(e){}
   if(!f){toast("Document introuvable.","bad");return}
-  const body=`${f.type==="application/pdf"?`<p>${ico("file")} ${esc(f.nom)}</p>`:`<img class="scan" alt="${esc(f.nom)}" src="${f.data}">`}
-    <div class="row end"><a class="btn primary" href="${f.data}" download="${esc(f.nom)}">${ico("download")} Télécharger</a></div>`;
+  const img=/^image\//.test(f.type||"")||/^data:image\//.test(f.data||"");
+  const body=`${img?`<img class="scan" alt="${esc(f.nom)}" src="${f.data}">`:`<p>${ico("file")} ${esc(f.nom)}</p>`}
+    <div class="row end wrap"><button class="btn" data-fopen>${ico("eye")} Ouvrir</button>${navigator.share?`<button class="btn" data-fshare>${ico("send")} Partager</button>`:""}<button class="btn primary" data-fdl>${ico("download")} Télécharger</button></div>`;
+  const wire=r=>{const q=s=>r.querySelector(s);q("[data-fdl]").onclick=()=>telechargerFichier(f);q("[data-fopen]").onclick=()=>ouvrirFichier(f);
+    const sh=q("[data-fshare]");if(sh)sh.onclick=()=>partagerFichier(f)};
   if(over){const w=document.createElement("div");w.className="sheet-bg over";w.innerHTML=`<div class="sheet"><div class="sheet-h"><h2>${esc(f.nom)}</h2><button class="iconbtn" data-x aria-label="Fermer">${ico("x")}</button></div><div class="sheet-b">${body}</div></div>`;
-    w.addEventListener("click",e=>{if(e.target===w||e.target.closest("[data-x]"))w.remove()});$("#sheetRoot").appendChild(w);return}
-  sheet(f.nom,body);
+    w.addEventListener("click",e=>{if(e.target===w||e.target.closest("[data-x]"))w.remove()});$("#sheetRoot").appendChild(w);wire(w);return}
+  wire(sheet(f.nom,body));
+}
+// Un fichier stocké en « data URL » devient un vrai fichier : les liens data: ne se téléchargent pas sur iPhone ni dans l'app installée.
+function blobDe(f){
+  const[h,b64]=String(f.data||"").split(",");const mime=(h.match(/^data:([^;,]+)/)||[])[1]||f.type||"application/octet-stream";
+  const bin=h.includes(";base64")?atob(b64||""):decodeURIComponent(b64||"");const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+  return new Blob([u],{type:mime});
+}
+const estIOS=()=>/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+async function partagerFichier(f){
+  const file=new File([blobDe(f)],f.nom||"document",{type:blobDe(f).type});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:f.nom});return true}catch(e){if(e.name==="AbortError")return true}}
+  return false;
+}
+async function telechargerFichier(f){
+  // Sur iPhone, « Partager » propose « Enregistrer dans Fichiers » ou « Enregistrer l'image » : c'est le vrai téléchargement.
+  if(estIOS()&&await partagerFichier(f))return;
+  const url=URL.createObjectURL(blobDe(f));const a=document.createElement("a");a.href=url;a.download=f.nom||"document";
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove()},60000);
+}
+function ouvrirFichier(f){
+  const url=URL.createObjectURL(blobDe(f));const w=window.open(url,"_blank");
+  if(!w)location.href=url;setTimeout(()=>URL.revokeObjectURL(url),300000);
 }
 const chf=n=>(Number(n)||0).toLocaleString("fr-CH",{minimumFractionDigits:2,maximumFractionDigits:2})+" CHF";
 function telecharger(nom,texte,type="text/csv;charset=utf-8"){
