@@ -3,7 +3,7 @@
 const NIVEAUX=["Tous","Chiots","Débutants","Intermédiaires","Avancés","FAC","Événement"];
 const upcoming=()=>all("cours").filter(c=>endOf(c)>=new Date()).sort((a,b)=>startOf(a)-startOf(b));
 const COURS_FIELDS=()=>[
-  {k:"type",l:"Type",t:"select",o:[["cours","Cours"],["evenement","Événement du club"]]},
+  {k:"type",l:"Type",t:"select",o:[["cours","Cours"],["evenement","Événement du club"],["boxtraordinaire","Boxtraordinaire"]]},
   {k:"titre",l:"Titre",req:true,ph:"Éducation – débutants"},
   {k:"date",l:"Date",t:"date",req:true,half:true},{k:"niveau",l:"Niveau",t:"select",o:NIVEAUX,half:true},
   {k:"debut",l:"Début",t:"time",req:true,half:true},{k:"fin",l:"Fin",t:"time",half:true},
@@ -25,7 +25,7 @@ function coursCard(c){
     <span class="grow"><b>${esc(c.titre)}</b>${c.annule?` <span class="badge bad">Annulé</span>`:""}${on?` <span class="badge good">${ico("check")} Inscrit·e</span>`:""}
       <span class="small meta">${[c.debut&&c.fin?c.debut+"–"+c.fin:"",c.niveau&&c.niveau!=="Tous"?c.niveau:"",placesTxt(c)].filter(Boolean).map(esc).join(" · ")}</span>
       ${m?`<span class="small who">${avatar(m.nom,m.photo,"xs")} ${esc(m.nom)}</span>`:""}</span>
-    ${c.type==="evenement"?`<span class="badge info">Événement</span>`:""}</button>`;
+    ${c.type==="evenement"?`<span class="badge info">Événement</span>`:c.type==="boxtraordinaire"?`<span class="badge info">Boxtraordinaire</span>`:""}</button>`;
 }
 VIEWS.agenda={t:"Agenda des cours",r(){
   const past=ARG==="passes";
