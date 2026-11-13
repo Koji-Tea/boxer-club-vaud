@@ -76,7 +76,7 @@ VIEWS.soutenir={t:"Soutenir le club",r(){
         <div class="row wrap">${L(CLUB.dossier,"Dossier d’inscription (PDF)")}${L(CLUB.statutsBCV,"Statuts BCV")}${L(CLUB.statutsBCS,"Statuts BCS")}</div></div>
       <div class="card"><h3>${ico("paw")} Vêtements et autocollants</h3><p>Portez les couleurs du club : la vente finance ses activités.</p>
         <div class="row wrap">${L(CLUB.prix,"Liste de prix")}${L(CLUB.catalogue,"Catalogue 2025")}${L(CLUB.commande,"Commander")}</div></div>
-      <div class="card"><h3>${ico("shield")} Boxer en détresse</h3><p>${rich(CFG.detresse)}</p><p><b>Frais de placement : 200 CHF.</b></p>
+      <div class="card"><h3>${ico("shield")} Boxer en détresse</h3><p>${rich(/placement/i.test(CFG.detresse||"")?CFG.detresse:(CFG.detresse||"")+" Les frais de placement sont de 200 CHF.")}</p>
         <div class="row wrap"><a class="btn" href="tel:0764818925">${ico("phone")} Suzanne Rochat</a></div></div>
       <div class="card"><h3>${ico("user")} Devenir bénévole</h3><p>Coup de main à la cabane, aux événements ou à Boxer en détresse : écrivez au comité.</p>
         <div class="row wrap"><a class="btn" href="mailto:president@boxerclubvaud.ch">${ico("mail")} Écrire au comité</a></div></div>

@@ -90,7 +90,7 @@ let CFG={
 };
 const qrSrc=()=>CFG.qrAdhesion||"img/qr-adhesion.png";
 const _cfgEnd={
-  detresse:"Boxer en détresse est une section du Boxer Club Suisse qui aide les boxers à trouver un nouveau foyer, sans passer par un refuge. Responsable romande : Suzanne Rochat, 076 481 89 25. Les frais d’adoption (500 CHF) et les dons financent la pension et les soins vétérinaires d’urgence. La section fonctionne sans subvention : chaque don compte.",
+  detresse:"Boxer en détresse est une section du Boxer Club Suisse qui aide les boxers à trouver un nouveau foyer, sans passer par un refuge. Responsable romande : Suzanne Rochat, 076 481 89 25. Les frais de placement sont de 200 CHF. Les frais d’adoption (500 CHF) et les dons financent la pension et les soins vétérinaires d’urgence. La section fonctionne sans subvention : chaque don compte.",
 };
 
 /* ---------- Données de départ (reprises de boxerclubvaud.ch) ---------- */
