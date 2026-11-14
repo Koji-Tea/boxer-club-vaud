@@ -3,7 +3,7 @@
    Chaque écran est déclaré dans VIEWS (fichiers js/vues/*.js) : {t:titre, i:icône, r(main):affichage}. */
 // [route, libellé, icône, visible pour…] : la comptabilité, la cabane et les réglages ne s'affichent qu'au comité.
 const NAV=[
-  ["accueil","Accueil","home"],["agenda","Agenda des cours","cal"],["club","Comité & adhérents","club"],["tchat","Tchat des membres","chat"],
+  ["accueil","Accueil","home"],["agenda","Agenda des cours","cal"],["club","Comité & adhérents","club"],["tchat","Tchat des membres","chat"],["galerie","Galerie photo","camera"],
   ["moniteurs","Moniteurs","coach"],["chiots","Chiots & portées","paw"],["compta","Comptabilité","coins",()=>isComite()],["cabane","Gestion cabane","cabin",()=>isComite()],
   ["wiki","Wiki du boxer","book"],["urgences","Contacts d’urgence","sos"],["acces","Plan d’accès","map"],["soutenir","Soutenir le club","heart"],
   ["reglages","Réglages","shield",()=>isComite()],

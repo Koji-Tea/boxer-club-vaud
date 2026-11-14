@@ -1,9 +1,9 @@
 // Garde l'application disponible hors connexion (les données passent par le cache de Firestore).
 // Changer le numéro de version à chaque mise en ligne pour forcer la mise à jour sur les téléphones.
-const C="bcv-v29";
+const C="bcv-v32";
 const FILES=["./","index.html","css/app.css","firebase-config.js","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png","apple-touch-icon.png","favicon.ico",
   "img/logo-noir.png","img/logo-blanc.png","img/favicon.png","img/qr-adhesion.png",
-  "js/outils.js","js/donnees.js","js/rappels.js","js/vues/vitrine.js","js/vues/cours.js","js/vues/chiots.js","js/vues/wiki.js","js/vues/membres.js","js/vues/messages.js","js/vues/compta.js","js/vues/cabane.js","js/app.js",
+  "js/outils.js","js/donnees.js","js/rappels.js","js/vues/vitrine.js","js/vues/cours.js","js/vues/chiots.js","js/vues/wiki.js","js/vues/membres.js","js/vues/messages.js","js/vues/compta.js","js/vues/cabane.js","js/vues/galerie.js","js/app.js",
   "vendor/firebase-app-compat.js","vendor/firebase-auth-compat.js","vendor/firebase-firestore-compat.js"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(FILES)));self.skipWaiting()});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))));self.clients.claim()});

@@ -43,6 +43,10 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   await go(A,'#tchat');await A.waitForTimeout(800);ok((await A.textContent('#chatList')).includes('Salut le club'),'message reçu par l’admin');
   await go(B,'#agenda');await B.click('[data-cours]');await B.waitForTimeout(400);await B.click('#reg');await B.waitForTimeout(1500);
   ok((await B.textContent('.sheet')).includes('Bob'),'inscription au cours');
+  await B.evaluate(()=>closeSheet());
+  await A.evaluate(async()=>{const i=all('inscriptions')[0];const c=get('cours',i.cours);await prevenirInscrits(c,{...c,lieu:'Cabane du club'});await put('cours',{...c,lieu:'Cabane du club'})});
+  await B.waitForTimeout(1800);
+  ok(await B.evaluate(()=>mesNotifs().some(n=>n.titre.startsWith('Modifié')&&n.texte.includes('Cabane du club'))),'inscrit·e prévenu·e quand le cours change');
   r=await tryWrite(B,()=>firebase.firestore().collection('elevages').add({nom:'x',uid:firebase.auth().currentUser.uid}));
   ok(r.includes('permission'),'adhérent ne peut pas créer d’élevage');
   r=await tryWrite(B,()=>firebase.firestore().collection('cours').add({titre:'pirate'}));
@@ -119,7 +123,7 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   r=await tryWrite(D,async()=>{const s=await firebase.firestore().collection('notes').get();return s.docs[0].ref.update({payee:true})});
   ok(r.includes('permission'),'on ne marque pas sa propre note payée');
   await go(B,'#compta/notes');await B.waitForTimeout(1000);
-  await B.check('[data-notepay]');await B.waitForTimeout(1800);
+  await B.waitForSelector('[data-notepay]',{timeout:10000}).catch(()=>{});  await B.check('[data-notepay]');await B.waitForTimeout(1800);
   ok(await D.evaluate(()=>mesNotifs().some(n=>n.titre==='Note de frais payée')),'auteur·rice prévenu·e quand la note est payée');
   ok(await D.evaluate(()=>nbNonLus()>0),'enveloppe : notification non lue');
   r=await B.evaluate(async()=>{try{const n=all('notes')[0];const f=await getFichier(n.fichiers[0].id);return f&&f.data.slice(0,15)}catch(e){return 'ERR '+e.message}});ok(String(r).startsWith('data:image'),'ticket scanné lisible par le comité');
@@ -142,6 +146,16 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   await A.click('.sheet button.primary');await A.waitForTimeout(1500);
   ok((await A.textContent('.v-club')).includes('PV assemblée'),'document du comité archivé avec son scan');
   await go(E,'#club/documents');await E.waitForTimeout(500);ok(!(await E.$('#addDoc')),'onglet documents caché aux adhérents');
+  // Galerie photo : créée par le comité, vue par les membres
+  await go(A,'#galerie');await A.waitForTimeout(600);await A.click('#galNew');await A.fill('#f_titre','Fête de Noël');
+  await A.setInputFiles('[data-addfile=photos][multiple]',{name:'noel.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==','base64')});await A.waitForTimeout(500);
+  await A.click('.sheet button.primary');await A.waitForTimeout(2000);
+  const galId=await A.evaluate(()=>all('galeries').find(g=>g.titre==='Fête de Noël').id);
+  await go(E,'#galerie/'+galId);await E.waitForTimeout(2500);
+  ok(await E.evaluate(()=>!!document.querySelector('.gal-it img[src^="data:image"]')),'galerie : la photo du comité est visible par une adhérente');
+  ok(!(await E.$('#galAdd')),'galerie : seul le comité ajoute des photos');
+  r=await tryWrite(E,()=>firebase.firestore().collection('galeries').add({titre:'x'}));ok(r!=='ok','galerie : une adhérente ne crée pas de galerie');
+  await go(B,'#club/chiens');await B.waitForTimeout(800);ok((await B.textContent('.chiens')).includes('Rex')&&(await B.textContent('.chiens')).includes('Bob'),'onglet Chiens : chien et maître affichés');
   // Année fiscale (octobre à septembre) et clôture fiscale
   ok(await A.evaluate(()=>exoDe('2026-09-30')==='2025'&&exoDe('2026-10-01')==='2026'&&labelAn('2025')==='2025 - 2026'),'année fiscale du 1er octobre au 30 septembre');
   await A.evaluate(()=>put('ecritures',{sens:'recette',compte:'club',date:'2026-03-15',montant:100,libelle:'Vente test',annee:'2026'}));

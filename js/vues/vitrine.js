@@ -103,9 +103,9 @@ VIEWS.urgences={t:"Contacts d’urgence",r(){
 /* ---------- Comité & adhérents ---------- */
 const COM_FIELDS=[{k:"nom",l:"Nom",req:true},{k:"role",l:"Rôle",req:true},{k:"email",l:"E-mail",t:"email"},{k:"tel",l:"Téléphone",t:"tel"},{k:"photo",l:"Photo",t:"photo"},{k:"ordre",l:"Ordre d’affichage",t:"number"}];
 VIEWS.club={t:"Comité & adhérents",r(){
-  const tab=ARG==="adherents"?"adherents":ARG==="documents"&&isComite()?"documents":"comite";
-  return`<div class="seg"><a href="#club" class="${tab==="comite"?"on":""}">Le comité</a><a href="#club/adherents" class="${tab==="adherents"?"on":""}">Adhérents</a>${isComite()?`<a href="#club/documents" class="${tab==="documents"?"on":""}">${ico("shield")} Documents du comité</a>`:""}</div>
-    ${tab==="comite"?comiteHTML():tab==="adherents"?adherentsHTML():docsComiteHTML()}`;
+  const tab=ARG==="adherents"?"adherents":ARG==="chiens"?"chiens":ARG==="documents"&&isComite()?"documents":"comite";
+  return`<div class="seg"><a href="#club" class="${tab==="comite"?"on":""}">Le comité</a><a href="#club/adherents" class="${tab==="adherents"?"on":""}">Adhérents</a><a href="#club/chiens" class="${tab==="chiens"?"on":""}">🐾 Chiens</a>${isComite()?`<a href="#club/documents" class="${tab==="documents"?"on":""}">${ico("shield")} Documents du comité</a>`:""}</div>
+    ${tab==="comite"?comiteHTML():tab==="adherents"?adherentsHTML():tab==="chiens"?chiensHTML():docsComiteHTML()}`;
 },bind(m){
   const ed=o=>{
     const lie=o.compte&&get("users",o.compte);
@@ -123,6 +123,7 @@ VIEWS.club={t:"Comité & adhérents",r(){
   if(ARG==="documents")bindDocsComite(m);
   $$("[data-com]",m).forEach(b=>b.onclick=()=>ed(get("comite",b.dataset.com)));
   const q=$("#adhQ",m);if(q)q.oninput=()=>{const t=norm(q.value);$$(".adh",m).forEach(x=>x.hidden=t&&!norm(x.dataset.s).includes(t))};
+  const qc=$("#chQ",m);if(qc)qc.oninput=()=>{const t=norm(qc.value);let n=0;$$(".chien-c",m).forEach(x=>{x.hidden=!!t&&!norm(x.dataset.s).includes(t);if(!x.hidden)n++});$("#chNb",m).textContent=n};
   $$("[data-user]",m).forEach(b=>b.onclick=()=>userSheet(get("users",b.dataset.user)));
   bindRoleSelects(m);bindCotis(m);bindQR(m);
   const ib=$("#infoBcs",m);if(ib)ib.onclick=()=>sheet("Adhésion au Boxer Club Suisse",`<p>${esc(INFO_BCS)}</p>`);
@@ -220,6 +221,21 @@ function userRow(u){
     <span class="badges">${roleBadge(u)}${com&&u.bcv?`<span class="badge">BCV</span>`:""}${com&&u.bcs?`<span class="badge">BCS</span>`:""}</span></button>`;
 }
 // Fiche d'un·e adhérent·e et de ses chiens, avec un bouton pour lui écrire.
+/* ---------- Chiens du club : les chiens des adhérent·es mis en avant (consultation seulement) ---------- */
+function chiensHTML(){
+  const lock=membersOnly("Les chiens du club");if(lock)return lock;
+  const l=all("users").filter(u=>MEMBERS.includes(u.role)).flatMap(u=>{const cs=(u.chiens||[]).filter(c=>c&&c.nom);
+    return(cs.length?cs:u.chien?[{nom:u.chien}]:[]).map(c=>({c,u}))}).sort((a,b)=>String(a.c.nom).localeCompare(b.c.nom,"fr"));
+  if(!l.length)return`<p class="muted">Aucun chien enregistré pour l’instant. Chacun·e ajoute ses chiens dans « Mon compte ».</p>`;
+  return`<p class="lead">Les chiens des adhérent·es du club. Tu connais le chien mais pas son maître ? Cherche-le ici.</p>
+    <div class="search">${ico("search")}<input id="chQ" type="search" placeholder="Nom du chien, race, maître…"></div>
+    <p class="small muted"><span id="chNb">${l.length}</span> chien(s)</p>
+    <div class="chiens">${l.map(({c,u})=>`<div class="card chien-c" data-s="${esc([c.nom,c.race,SEXES[c.sexe],u.pseudo,u.prenom].filter(Boolean).join(" "))}">
+      <div class="chien-ph">${c.photo?`<img alt="${esc(c.nom)}" src="${esc(c.photo)}">`:`<span>${esc(String(c.nom).slice(0,1).toUpperCase())}</span>`}</div>
+      <b class="chien-nom">${esc(c.nom)}</b>
+      <span class="small">${[SEXES[c.sexe],c.race,c.naissance?ageFrom(c.naissance):""].filter(Boolean).map(esc).join(" · ")||"&nbsp;"}</span>
+      <button class="lnk small chien-m" data-user="${esc(u.id)}">${avatar(u.pseudo,u.photo,"xs")} ${esc(u.pseudo)}${u.prenom?" · "+esc(u.prenom):""}</button></div>`).join("")}</div>`;
+}
 function userSheet(u){
   if(!u)return;
   const com=isComite(),p=com?priveDe(u.id):{},an=anneeCotis(),dt=cotisDate(u.id);

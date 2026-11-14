@@ -49,10 +49,31 @@ function editCours(o){
       const n=Math.min(52,Number(v.repeat)||0);delete v.repeat;
       const by=o.uid||ME.uid; // auteur du cours (un·e membre ne modifie que les siens)
       await put("cours",{...o,...v,uid:by});
+      if(o.id)await prevenirInscrits(o,{...o,...v});
       for(let i=1;i<=n;i++){const d=parseDay(v.date);d.setDate(d.getDate()+7*i);await put("cours",{...v,uid:by,date:isoDay(d)})}
       toast(n?`${n+1} cours créés`:"Cours enregistré");
     },
-    remove:o.id&&(async()=>{for(const i of inscritsDe(o.id))await del("inscriptions",i.id);await del("cours",o.id)})});
+    remove:o.id&&(async()=>{await prevenirInscrits(o,null);for(const i of inscritsDe(o.id))await del("inscriptions",i.id);await del("cours",o.id)})});
+}
+// Prévient chaque personne inscrite quand un rendez-vous de l'agenda change (date, heure, lieu, moniteur, annulation) ou est supprimé.
+async function prevenirInscrits(avant,apres){
+  const qui=[...new Set(inscritsDe(avant.id).map(i=>i.uid))].filter(u=>u&&u!==ME.uid);if(!qui.length)return;
+  const quand=c=>`${fmtDayY(c.date)} à ${c.debut||""}${c.fin?"–"+c.fin:""}`,mon=id=>(get("moniteurs",id)||{}).nom||"—";
+  const nom=avant.titre||"Rendez-vous";let titre,texte;
+  if(!apres){titre=`Supprimé : ${nom}`;texte=`Le rendez-vous du ${quand(avant)} a été retiré de l’agenda.`}
+  else if(apres.annule&&!avant.annule){titre=`Annulé : ${nom}`;texte=`Le rendez-vous du ${quand(avant)} est annulé.`}
+  else{
+    const ch=[];
+    if(apres.annule===false&&avant.annule)ch.push("il n’est plus annulé");
+    if(apres.date!==avant.date||apres.debut!==avant.debut||(apres.fin||"")!==(avant.fin||""))ch.push(`nouvelle date : ${quand(apres)} (au lieu du ${quand(avant)})`);
+    if((apres.lieu||"")!==(avant.lieu||""))ch.push(`nouveau lieu : ${apres.lieu||"à préciser"}`);
+    if((apres.moniteur||"")!==(avant.moniteur||""))ch.push(`donné par : ${mon(apres.moniteur)}`);
+    if((apres.titre||"")!==(avant.titre||""))ch.push(`nouveau titre : ${apres.titre}`);
+    if(!ch.length)return; // description, places… : pas de quoi déranger tout le monde
+    titre=`Modifié : ${apres.titre||nom}`;texte=ch.join(" · ").replace(/^./,c=>c.toUpperCase())+".";
+  }
+  for(const u of qui)await notifier(u,titre,texte,"#agenda");
+  toast(qui.length+" personne"+(qui.length>1?"s":"")+" inscrite"+(qui.length>1?"s":"")+" prévenue"+(qui.length>1?"s":""));
 }
 function coursSheet(c){
   if(!c)return;

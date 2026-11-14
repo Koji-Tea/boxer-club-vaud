@@ -338,3 +338,23 @@ img.qr-big{display:block;width:100%;max-width:340px;margin:8px auto 14px;backgro
 
 .card.doc .row{align-items:center;gap:10px}
 .an-bar{gap:8px;align-items:center}
+
+/* Chiens du club */
+.chiens{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.chien-c{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;margin:0;padding:14px 10px}
+.chien-ph{width:100%;aspect-ratio:1;border-radius:14px;overflow:hidden;background:var(--surface-2);display:grid;place-items:center;margin-bottom:6px}
+.chien-ph img{width:100%;height:100%;object-fit:cover}
+.chien-ph span{font-size:2.6rem;font-weight:800;color:var(--muted)}
+.chien-nom{font-size:1.1rem}
+.chien-m{display:inline-flex;align-items:center;gap:6px;margin-top:4px}
+.chien-c[hidden]{display:none}
+
+/* Galerie photo */
+.gal-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.gal-card{display:flex;flex-direction:column;gap:4px;margin:0;padding:10px;text-decoration:none;color:inherit}
+.gal-cov{aspect-ratio:4/3;border-radius:12px;overflow:hidden;background:var(--surface-2);display:grid;place-items:center;margin-bottom:6px}
+.gal-cov img,.gal-it img{width:100%;height:100%;object-fit:cover;display:block}
+.gal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px}
+.gal-it{aspect-ratio:1;border:0;padding:0;border-radius:10px;overflow:hidden;background:var(--surface-2);cursor:pointer;display:grid;place-items:center}
+.gal-it.ko,.gal-cov.ko{opacity:.35}
+.gal-pdf{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;color:var(--muted);text-align:center;word-break:break-word}

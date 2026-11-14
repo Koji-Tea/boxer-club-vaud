@@ -45,6 +45,7 @@ const COLS={
   compta:{write:COMPTA_EDIT},ecritures:{write:COMPTA_EDIT},factures:{write:COMPTA_EDIT},notes:{write:COMITE},
   cabane:{write:COMITE},
   docscomite:{write:COMITE}, // archives du comité : PV, convocations, correspondance
+  galeries:{write:COMITE},   // galerie photo (membres)
   fichiers:{},      // factures et tickets scannés
 };
 
@@ -268,6 +269,7 @@ function listenMembers(){
   if(!isMember())return;
   sub("users",DB.collection("users"));
   sub("inscriptions",DB.collection("inscriptions"));
+  sub("galeries",DB.collection("galeries"));
   sub("messages",DB.collection("messages").orderBy("at","desc").limit(200));
   // Groupes : on écoute aussi le fil des groupes rejoints, pour signaler les nouveaux messages.
   // Groupes privés : invisibles sauf pour leurs membres. On écoute donc les groupes ouverts et ceux dont on fait partie
@@ -547,12 +549,12 @@ async function lireFichier(file){
 }
 // Fichiers en attente dans un formulaire : envoyés à l'enregistrement.
 const PENDING={};
-async function envoyerFichiers(list){
+async function envoyerFichiers(list,extra={}){
   const out=[];
   for(const f of list||[]){
     if(!f.tmp){out.push(f);continue}
     const p=PENDING[f.tmp];if(!p)continue;
-    const o={id:uid(),nom:p.nom,type:p.type,data:p.data,uid:ME.uid,at:new Date().toISOString()};
+    const o={id:uid(),nom:p.nom,type:p.type,data:p.data,uid:ME.uid,at:new Date().toISOString(),...extra};
     if(MODE==="cloud"){try{await DB.doc("fichiers/"+o.id).set(o)}catch(e){dbErr(e);throw e}}else{S.fichiers.set(o.id,o);saveLocal()}
     delete PENDING[f.tmp];out.push({id:o.id,nom:o.nom,type:o.type});
   }

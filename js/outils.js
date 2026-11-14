@@ -146,7 +146,7 @@ function shrinkImage(file,max=320,q=.8){
 function editSheet(title,fields,o,{save,remove,wide}={}){
   const s=sheet(title,formHTML(fields,{...o,_canDel:!!remove}),{wide});const form=$("form",s);
   form.addEventListener("submit",async e=>{e.preventDefault();const v=readForm(form,fields);const btn=$("button.primary",form);btn.disabled=true;
-    try{for(const f of fields)if(f.t==="files")v[f.k]=await envoyerFichiers(v[f.k]);await save(v);closeSheet()}catch(err){toast(err.message||"Enregistrement impossible","bad")}finally{btn.disabled=false}});
+    try{for(const f of fields)if(f.t==="files")v[f.k]=await envoyerFichiers(v[f.k],f.galerie?{galerie:true}:{});await save(v);closeSheet()}catch(err){toast(err.message||"Enregistrement impossible","bad")}finally{btn.disabled=false}});
   // Documents joints (factures, tickets) : liste, ajout par photo ou fichier, retrait.
   const drawFiles=k=>{const h=form.elements[k],l=JSON.parse(h.value||"[]"),box=$(`[data-fl="${k}"]`,form);
     box.innerHTML=l.length?l.map((x,i)=>`<span class="chip">${x.id?`<button type="button" class="lnk" data-viewfile="${esc(x.id)}">${ico(x.type==="application/pdf"?"file":"camera")} ${esc(x.nom)}</button>`:`<button type="button" class="lnk" data-viewtmp="${esc(x.tmp)}">${ico(x.type==="application/pdf"?"file":"camera")} ${esc(x.nom)}</button>`}<button type="button" class="x" data-rmfile="${i}" aria-label="Retirer">×</button></span>`).join(""):`<span class="small muted">Aucun document joint.</span>`;

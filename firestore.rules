@@ -183,12 +183,15 @@ service cloud.firestore {
     }
     // Factures, tickets scannés et carnets de vaccination (un document par fichier, moins de 1 Mo).
     // Chacun·e lit ses propres fichiers ; le comité lit tout.
+    // Les photos de la galerie (galerie == true) sont lisibles par tous les membres.
     match /fichiers/{id} {
-      allow read: if comite() || (signedIn() && resource.data.uid == me());
+      allow read: if comite() || (signedIn() && resource.data.uid == me()) || (member() && resource.data.get('galerie', false) == true);
       allow create: if signedIn() && mine();
-      allow delete: if comptaEdit() || (comite() && wasMine());
+      allow delete: if comptaEdit() || (comite() && (wasMine() || resource.data.get('galerie', false) == true));
     }
     match /cabane/{id}      { allow read, write: if comite(); }
+    // Galerie photo : vue par les membres, créée et complétée par le comité.
+    match /galeries/{id}    { allow read: if member(); allow write: if comite(); }
     // Archives du comité : PV, convocations, correspondance.
     match /docscomite/{id}  { allow read, write: if comite(); }
   }
