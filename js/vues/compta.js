@@ -14,7 +14,8 @@ const peutModif=()=>isComptaEdit()&&!cloture();
 const montantAn=an=>Number(exo(an).cotisation)||montantCotis();
 const somme=l=>l.reduce((a,o)=>a+(Number(o.montant)||0),0);
 function annees(){
-  const set=new Set([anneeCotis(),COMPTA_AN]);
+  // Toujours l’exercice en cours et le précédent (pour pouvoir le clôturer), plus ceux qui ont des données.
+  const set=new Set([anneeCotis(),String(+anneeCotis()-1),COMPTA_AN]);
   ["ecritures","factures","notes"].forEach(c=>all(c).forEach(o=>{const a=anDe(o);if(/^\d{4}$/.test(a))set.add(a)}));
   all("compta").forEach(o=>set.add(o.id));all("cotisations").forEach(o=>Object.keys(o.paye||{}).forEach(a=>set.add(a)));
   return[...set].sort().reverse();
