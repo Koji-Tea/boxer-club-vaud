@@ -47,7 +47,15 @@ service cloud.firestore {
     }
 
     // ----- Vitrine -----
-    match /cours/{id}     { allow read: if true; allow write: if coursEdit(); }
+    // Agenda : les responsables des cours gèrent tout ; chaque membre du comité crée des événements (pas des cours)
+    // et ne modifie ou supprime que les siens.
+    match /cours/{id} {
+      function evt(d) { return d.get('type', 'cours') != 'cours'; }
+      allow read: if true;
+      allow create: if coursEdit() || (comite() && mine() && evt(request.resource.data));
+      allow update: if coursEdit() || (comite() && wasMine() && evt(resource.data) && mine() && evt(request.resource.data));
+      allow delete: if coursEdit() || (comite() && wasMine() && evt(resource.data));
+    }
     match /moniteurs/{id} { allow read: if true; allow write: if coursEdit(); }
     match /wiki/{id}      { allow read: if true; allow write: if comite() || role() == 'moniteur'; }
     match /comite/{id}    { allow read: if true; allow write: if comite(); }
@@ -106,7 +114,8 @@ service cloud.firestore {
       allow read: if member();
       allow create: if member() && mine() && id == request.resource.data.cours + '_' + me()
         && exists(/databases/$(database)/documents/cours/$(request.resource.data.cours));
-      allow delete: if signedIn() && (wasMine() || coursEdit());
+      allow delete: if signedIn() && (wasMine() || coursEdit()
+        || (comite() && get(/databases/$(database)/documents/cours/$(resource.data.cours)).data.uid == me()));
     }
     // Tchat général.
     match /messages/{id} {

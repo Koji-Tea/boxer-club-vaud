@@ -80,7 +80,9 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   await A.click(`[data-ok="${dUid}"][data-r=adherent]`);await A.waitForTimeout(1200);await A.selectOption(`[data-role-of="${dUid}"]`,'comite');
   await A.waitForTimeout(1200);
   r=await tryWrite(D,()=>firebase.firestore().collection('cotisations').get());ok(r==='ok','comité voit les cotisations');
-  r=await tryWrite(D,()=>firebase.firestore().collection('cours').add({titre:'x'}));ok(r.includes('permission'),'membre du comité ne modifie pas l’agenda');
+  r=await tryWrite(D,()=>firebase.firestore().collection('cours').add({titre:'x'}));ok(r.includes('permission'),'membre du comité ne crée pas de cours');
+  r=await tryWrite(D,()=>firebase.firestore().collection('cours').add({titre:'Sortie',type:'evenement',date:'2020-01-01',debut:'10:00',uid:firebase.auth().currentUser.uid}));ok(r==='ok','membre du comité crée un événement');
+  r=await tryWrite(D,()=>firebase.firestore().collection('cours').add({titre:'x',type:'cours',uid:firebase.auth().currentUser.uid}));ok(r.includes('permission'),'membre du comité ne crée pas de cours, même en le déclarant');
   r=await tryWrite(D,()=>firebase.firestore().collection('ecritures').add({libelle:'x',montant:1}));ok(r.includes('permission'),'membre du comité ne modifie pas la comptabilité');
   r=await tryWrite(D,()=>firebase.firestore().doc('cotisations/x').set({paye:{}}));ok(r.includes('permission'),'comité ne coche pas les cotisations');
   const bU=bUid;

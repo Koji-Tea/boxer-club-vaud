@@ -33,18 +33,20 @@ VIEWS.agenda={t:"Agenda des cours",r(){
   const groups=new Map();list.forEach(c=>{const k=c.date.slice(0,7);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(c)});
   const mine=ME?upcoming().filter(c=>estInscrit(c.id)):[];
   return`<div class="row between wrap"><div class="seg"><a href="#agenda" class="${past?"":"on"}">À venir</a><a href="#agenda/passes" class="${past?"on":""}">Passés</a></div>
-      ${canWrite("cours")?addBtn("addCours","Nouveau cours"):""}</div>
+      ${peutCreerAgenda()?addBtn("addCours",isCoursEdit()?"Nouveau cours":"Nouvel événement"):""}</div>
     ${!ME?`<div class="banner info">${ico("user")}<div><a href="#compte">Connecte-toi</a> pour t’inscrire aux cours et recevoir un rappel.</div></div>`:""}
     ${mine.length&&!past?`<div class="banner good">${ico("bell")}<div>Tu es inscrit·e à ${mine.length} cours à venir. ${rappelOn()&&notifSupported()&&Notification.permission==="granted"?"Rappel "+DELAIS.find(d=>d[0]===rappelMin())[1]+".":`<a href="#compte">Activer les rappels</a>`}</div></div>`:""}
     ${list.length?[...groups].map(([k,l])=>{const d=parseDay(k+"-01");return`<h2 class="h">${MOIS[d.getMonth()]} ${d.getFullYear()}</h2><div class="list">${l.map(coursCard).join("")}</div>`}).join("")
       :`<p class="muted">${past?"Aucun cours passé.":"Aucun cours annoncé pour le moment."}</p>`}`;
 },bind(m){
   $$("[data-cours]",m).forEach(b=>b.onclick=()=>coursSheet(get("cours",b.dataset.cours)));
-  const a=$("#addCours",m);if(a)a.onclick=()=>editCours({type:"cours",niveau:"Tous",lieu:"Terrain d’Ecublens"});
+  const a=$("#addCours",m);if(a)a.onclick=()=>editCours({type:isCoursEdit()?"cours":"evenement",niveau:"Tous",lieu:"Terrain d’Ecublens"});
 }};
 function editCours(o){
-  const fields=COURS_FIELDS();if(!o.id)fields.push({k:"repeat",l:"Répéter chaque semaine (nombre de semaines en plus)",t:"number",min:0,d:0,h:"Par exemple 10 pour créer ce cours chaque semaine pendant 10 semaines de plus."});
-  editSheet(o.id?"Modifier le cours":"Nouveau cours",fields,o,{wide:true,
+  const fields=COURS_FIELDS();
+  // Comité sans droit sur les cours : seulement les événements (pas le type « Cours »).
+  if(!isCoursEdit())fields[0]={...fields[0],o:fields[0].o.filter(([k])=>k!=="cours")};if(!o.id)fields.push({k:"repeat",l:"Répéter chaque semaine (nombre de semaines en plus)",t:"number",min:0,d:0,h:"Par exemple 10 pour créer ce cours chaque semaine pendant 10 semaines de plus."});
+  editSheet(o.id?((o.type||"cours")==="cours"?"Modifier le cours":"Modifier l’événement"):isCoursEdit()?"Nouveau cours":"Nouvel événement",fields,o,{wide:true,
     save:async v=>{
       const n=Math.min(52,Number(v.repeat)||0);delete v.repeat;
       const by=o.uid||ME.uid; // auteur du cours (un·e membre ne modifie que les siens)

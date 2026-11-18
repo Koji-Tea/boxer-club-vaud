@@ -60,7 +60,9 @@ const isComptaEdit=()=>hasRole(COMPTA_EDIT);
 const isAdmin=()=>!!ME&&ME.role==="admin";
 const isChef=()=>hasRole(["admin","president"]);
 const canWrite=c=>hasRole(COLS[c].write||[]);
-const canEditCours=o=>isCoursEdit();
+// Tout le comité peut créer des événements (pas des cours) et modifier ou supprimer les siens.
+const peutCreerAgenda=()=>isCoursEdit()||isComite();
+const canEditCours=o=>isCoursEdit()||(isComite()&&!!o&&(o.type||"cours")!=="cours"&&o.uid===ME.uid);
 // Une annonce de portée : le comité modifie tout, un·e éleveur·euse seulement les siennes.
 const canEditDoc=(c,o)=>canWrite(c)&&(!COLS[c].own||isComite()||(o&&o.uid===ME.uid));
 // Qui peut donner un rôle : admin seulement par l'admin ; président·e et caissier·ère par l'admin ou le/la président·e.
