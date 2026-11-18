@@ -3,7 +3,7 @@
    Résumé de l'exercice, cotisations, recettes et dépenses, factures, notes de frais, archives par année.
    Modifier : admin, président·e, caissier·ère. Notes de frais : chaque membre du comité en crée. */
 let COMPTA_AN=ls("bcv-compta-an")||exoDe(new Date().toISOString());
-const COMPTES={club:"Club Boxer Vaud",cabane:"Compte Cabane"};
+const COMPTES={club:"Club Boxer Vaud",cabane:"Compte Cabane",caisse:"Petite caisse"};
 const CAT_REC=["Cours","Dons","Manifestations","Vente vêtements","Location cabane","Subventions","Autres recettes"];
 const CAT_DEP=["Cabane","Matériel","Assurances","Cotisation Boxer Club Suisse","Manifestations","Frais bancaires","Administration","Autres dépenses"];
 const anDe=o=>o.date?exoDe(o.date):String(o.annee||"");
@@ -47,7 +47,7 @@ VIEWS.compta={t:"Comptabilité",r(){
   const b=(id,f)=>{const e=$("#"+id,m);if(e)e.onclick=f};
   // Résumé
   b("soldes",()=>{const o=exo();editSheet("Soldes des comptes au "+fmtDayY(today()),[
-      {k:"club",l:"Compte « Club Boxer Vaud » (CHF)",t:"number",half:true},{k:"cabane",l:"Compte « Cabane » (CHF)",t:"number",half:true},
+      {k:"club",l:"Compte « Club Boxer Vaud » (CHF)",t:"number",half:true},{k:"cabane",l:"Compte « Cabane » (CHF)",t:"number",half:true},{k:"caisse",l:"Petite caisse (espèces, CHF)",t:"number",half:true},
       {k:"majLe",l:"Montants relevés le",t:"date",d:today()},{k:"notes",l:"Remarques",t:"textarea",rows:2}],
     {...o,majLe:today()},{save:v=>put("compta",{...o,...v,id:COMPTA_AN})})});
   b("csv",()=>exportCSV(COMPTA_AN));
@@ -78,11 +78,12 @@ function resumeHTML(){
   const o=exo(),bl=bilan(COMPTA_AN);
   const fa=all("factures").filter(f=>!f.payee),no=all("notes").filter(n=>!n.payee);
   const line=(l,v,cls="")=>`<div class="kv ${cls}"><span>${l}</span><div>${v}</div></div>`;
-  const total=(Number(o.club)||0)+(Number(o.cabane)||0);
+  const total=(Number(o.club)||0)+(Number(o.cabane)||0)+(Number(o.caisse)||0);
   return`<div class="stats">
       <div class="card stat"><span class="small muted">${COMPTES.club}</span><b>${o.club!=null?chf(o.club):"—"}</b></div>
       <div class="card stat"><span class="small muted">${COMPTES.cabane}</span><b>${o.cabane!=null?chf(o.cabane):"—"}</b></div>
-      <div class="card stat soft"><span class="small muted">Total disponible</span><b>${o.club!=null||o.cabane!=null?chf(total):"—"}</b></div></div>
+      <div class="card stat"><span class="small muted">${COMPTES.caisse}</span><b>${o.caisse!=null?chf(o.caisse):"—"}</b></div>
+      <div class="card stat soft"><span class="small muted">Total disponible</span><b>${o.club!=null||o.cabane!=null||o.caisse!=null?chf(total):"—"}</b></div></div>
     <p class="small muted">${o.majLe?"Montants relevés le "+esc(fmtDayY(o.majLe)):"Montants des comptes pas encore saisis pour "+labelAn(COMPTA_AN)+"."}${o.notes?" · "+esc(o.notes):""}</p>
     ${peutModif()?`<div class="row wrap"><button class="btn sm" id="soldes">${ico("edit")} Saisir les soldes des comptes</button></div>`:""}
     <h2 class="h">Exercice ${labelAn(COMPTA_AN)}</h2>
@@ -245,6 +246,6 @@ function csvTexte(an){
   all("ecritures").filter(o=>anDe(o)===an).forEach(o=>rows.push(["Écriture",o.date,o.libelle,o.cat||"",COMPTES[o.compte]||"",o.sens==="recette"?n(o.montant):"",o.sens==="depense"?n(o.montant):"",""]));
   all("factures").filter(o=>anDe(o)===an).forEach(o=>rows.push(["Facture",o.date,o.fournisseur+(o.objet?" – "+o.objet:""),"",COMPTES[o.compte]||"","",n(o.montant),o.payee?"Payée le "+o.payeeLe:"À payer"]));
   all("notes").filter(o=>anDe(o)===an).forEach(o=>rows.push(["Note de frais",o.date,o.motif+" ("+o.pseudo+")","Notes de frais","","",n(o.montant),o.payee?"Payée le "+o.payeeLe:"À payer"]));
-  const e=exo(an);rows.push([]);rows.push(["Solde",e.majLe||"",COMPTES.club,"","",e.club!=null?n(e.club):""]);rows.push(["Solde",e.majLe||"",COMPTES.cabane,"","",e.cabane!=null?n(e.cabane):""]);
+  const e=exo(an);rows.push([]);rows.push(["Solde",e.majLe||"",COMPTES.club,"","",e.club!=null?n(e.club):""]);rows.push(["Solde",e.majLe||"",COMPTES.cabane,"","",e.cabane!=null?n(e.cabane):""]);rows.push(["Solde",e.majLe||"",COMPTES.caisse,"","",e.caisse!=null?n(e.caisse):""]);
   return rows.map(r=>r.map(q).join(";")).join("\r\n");
 }
