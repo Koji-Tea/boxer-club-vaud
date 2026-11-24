@@ -17,10 +17,27 @@ function fillChat(box,list,first,nameOf,canDel,onDel,empty){
     const d=isoDay(new Date(x.at));const sep=d!==prevDay?`<div class="day">${esc(fmtDay(d))}</div>`:"";prevDay=d;
     const mine=x.uid===ME.uid,u=get("users",x.uid)||(mine?ME:null),nom=x.pseudo||(u&&u.pseudo)||nameOf(x),pre=u&&u.prenom;
     // Pseudo et prénom de la personne qui écrit, sur chaque message (y compris les siens).
-    return`${sep}<div class="msg ${mine?"me":""}">${mine?"":avatar(nom,u&&u.photo,"sm")}<div class="bub"><b>${esc(nom)}${pre?` <span class="pre">· ${esc(pre)}</span>`:""}</b><p>${rich(x.texte)}</p><small>${esc(fmtAgo(x.at))}${canDel(x)?` · <button class="lnk" data-delmsg="${esc(x.id)}">supprimer</button>`:""}</small></div></div>`;
+    const rs=Object.entries(x.reac||{}),cnt=new Map();rs.forEach(([who,e])=>{if(!cnt.has(e))cnt.set(e,[]);cnt.get(e).push(who)});
+    const reacs=cnt.size?`<div class="reacs">${[...cnt].map(([e,w])=>`<button class="reac${w.includes(ME.uid)?" on":""}" data-reac="${esc(x.id)}" data-e="${esc(e)}" title="${esc(w.map(id=>(get("users",id)||{}).pseudo||(id===ME.uid?ME.pseudo:"?")).join(", "))}">${esc(e)}${w.length>1?` <span>${w.length}</span>`:""}</button>`).join("")}</div>`:"";
+    return`${sep}<div class="msg ${mine?"me":""}">${mine?"":avatar(nom,u&&u.photo,"sm")}<div class="bwrap"><div class="bub" data-bub="${esc(x.id)}" title="Toucher pour réagir"><b>${esc(nom)}${pre?` <span class="pre">· ${esc(pre)}</span>`:""}</b><p>${rich(x.texte)}</p><small>${esc(fmtAgo(x.at))}${canDel(x)?` · <button class="lnk" data-delmsg="${esc(x.id)}">supprimer</button>`:""}</small></div>${reacs}</div></div>`;
   }).join(""):`<p class="muted center">${esc(empty)}</p>`;
-  $$("[data-delmsg]",box).forEach(b=>b.onclick=async()=>{if(await confirmBox("Supprimer ce message ?"))onDel(list.find(x=>x.id===b.dataset.delmsg))});
+  $$("[data-delmsg]",box).forEach(b=>b.onclick=async e=>{e.stopPropagation();if(await confirmBox("Supprimer ce message ?"))onDel(list.find(x=>x.id===b.dataset.delmsg))});
+  // Réactions : toucher une bulle ouvre la barre d'emojis ; toucher une réaction l'ajoute ou l'enlève.
+  const byId=id=>list.find(x=>x.id===id);
+  $$("[data-reac]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();reagir(byId(b.dataset.reac),b.dataset.e)});
+  $$("[data-bub]",box).forEach(b=>b.onclick=e=>{if(e.target.closest("a,button")||getSelection().toString())return;choisirReaction(b,byId(b.dataset.bub))});
   if(atBottom)box.scrollTop=box.scrollHeight;
+}
+
+const EMOJIS=["👍","❤️","😂","😮","😢","🙏","🐾","🎉"];
+function choisirReaction(bub,x){
+  if(!x)return;const old=$(".reac-pick");if(old){const same=old.dataset.for===x.id;old.remove();if(same)return}
+  const mineE=(x.reac||{})[ME.uid];
+  const p=document.createElement("div");p.className="reac-pick";p.dataset.for=x.id;
+  p.innerHTML=EMOJIS.map(e=>`<button class="${e===mineE?"on":""}" data-pe="${e}" aria-label="Réagir ${e}">${e}</button>`).join("");
+  bub.closest(".bwrap").prepend(p);
+  $$("[data-pe]",p).forEach(b=>b.onclick=e=>{e.stopPropagation();p.remove();reagir(x,b.dataset.pe)});
+  setTimeout(()=>document.addEventListener("click",function f(e){if(!p.contains(e.target)){p.remove();document.removeEventListener("click",f)}}),0);
 }
 
 /* ---------- Tchat : fil général et groupes de discussion ---------- */
@@ -30,7 +47,7 @@ VIEWS.tchat={t:"Tchat des membres",r(){
   const lock=membersOnly("Le tchat");if(lock)return lock;
   const g=ARG&&get("groupes",ARG);
   const mine=all("groupes").filter(dansGroupe).sort(byNom),autres=all("groupes").filter(g=>!dansGroupe(g)&&!g.prive).length;
-  const bar=`<div class="row between wrap chat-top"><div class="seg">${[["","Général",!g],...mine.map(x=>[x.id,x.nom,g&&g.id===x.id])].map(([id,l,on])=>`<a href="#tchat${id?"/"+esc(id):""}" class="${on?"on":""}">${esc(l)}${on?"":dotNL(nonLusCanal(id))}</a>`).join("")}</div>
+  const bar=bandeauNotif()+`<div class="row between wrap chat-top"><div class="seg">${[["","Général",!g],...mine.map(x=>[x.id,x.nom,g&&g.id===x.id])].map(([id,l,on])=>`<a href="#tchat${id?"/"+esc(id):""}" class="${on?"on":""}">${esc(l)}${on?"":dotNL(nonLusCanal(id))}</a>`).join("")}</div>
     <button class="btn sm" id="grpBtn">${ico("group")} Groupes${autres?` <em class="pill">${autres}</em>`:""}</button></div>`;
   if(ARG&&!g)return bar+`<p class="muted">Ce groupe n’existe plus.</p>`;
   if(g&&!dansGroupe(g)&&g.prive)return bar+`<p class="muted">${ico("lock")} Ce groupe est privé : il faut y être invité·e par le comité.</p>`;
@@ -43,6 +60,7 @@ VIEWS.tchat={t:"Tchat des membres",r(){
   const v=$(".view",m);if(v)v.dataset.shape=tchatForme();
   if(!isMember())return;
   const g=ARG&&get("groupes",ARG);
+  bindBandeauNotif(m);
   $("#grpBtn",m).onclick=groupesSheet;
   const j=$("#joinG",m);if(j)j.onclick=()=>rejoindreGroupe(g,true);
   const gi=$("#grpInfo",m);if(gi)gi.onclick=()=>groupeSheet(g);

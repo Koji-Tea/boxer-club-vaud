@@ -73,7 +73,7 @@ function bindInstall(root){
 window.addEventListener("appinstalled",()=>{ls("bcv-install-ok","1");render()});
 
 /* ---------- Affichage ---------- */
-function render(){
+function render(){planNotifs();
   if(MODE==="loading")return;
   const v=VIEWS[ROUTE];
   document.title=(ROUTE==="accueil"?"":v.t+" – ")+"Boxer Club Vaud";
@@ -105,10 +105,32 @@ function membersOnly(what){
 
 /* ---------- Démarrage ---------- */
 if("serviceWorker" in navigator&&location.protocol==="https:"&&window.top===window)navigator.serviceWorker.register("sw.js").catch(()=>{});
-function effacerNotifsSysteme(){
-  try{navigator.clearAppBadge&&navigator.clearAppBadge().catch(()=>{})}catch(e){}
-  if(navigator.serviceWorker)navigator.serviceWorker.getRegistration().then(r=>r&&r.getNotifications().then(l=>l.forEach(n=>n.close()))).catch(()=>{});
+/* ---------- Notifications du téléphone pour les nouveaux messages ----------
+   Quand l'app est ouverte ou en arrière-plan, chaque nouveau message (tchat, groupe, message privé, enveloppe)
+   s'affiche dans les notifications du téléphone. Une notification disparaît dès que le message est lu,
+   et la pastille de l'icône donne le nombre de non-lus. (App complètement fermée : il faudrait le forfait Blaze.) */
+function nonLusSysteme(){
+  const out=new Map();if(!ME||!isMember())return out;
+  const dernier=l=>l.filter(x=>x.uid!==ME.uid).sort((a,b)=>String(b.at).localeCompare(a.at))[0];
+  if(nonLusCanal("")){const x=dernier(all("messages"));if(x)out.set("t-general",{t:"Tchat : "+(x.pseudo||"nouveau message"),b:x.texte,u:"#tchat",at:x.at})}
+  all("groupes").filter(dansGroupe).forEach(g=>{if(!nonLusCanal(g.id))return;const x=dernier(all("gmsgs").filter(m=>m.g===g.id));
+    if(x)out.set("t-"+g.id,{t:g.nom+" : "+(x.pseudo||"nouveau message"),b:x.texte,u:"#tchat/"+g.id,at:x.at})});
+  all("convs").filter(convNonLue).forEach(cv=>{const o=autreDe(cv);out.set("dm-"+cv.id,{t:"Message de "+((get("users",o)||{}).pseudo||(cv.noms||{})[o]||"un membre"),b:cv.last||"",u:"#boite/m/"+o,at:cv.lastAt})});
+  mesNotifs().filter(n=>!n.lu).forEach(n=>out.set("n-"+n.id,{t:n.titre,b:n.texte||"",u:n.lien||"#boite",at:n.at}));
+  return out;
 }
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)effacerNotifsSysteme()});
-effacerNotifsSysteme();
+let NOTIF_VU=null;
+async function majNotifsSysteme(){
+  const cur=nonLusSysteme(),n=[...cur.values()].length;
+  try{if(navigator.setAppBadge){n?navigator.setAppBadge(tchatNonLus()+nbNonLus()).catch(()=>{}):navigator.clearAppBadge().catch(()=>{})}}catch(e){}
+  const r=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration().catch(()=>null);
+  if(r){ // On retire les notifications des messages lus (et les anciennes sans étiquette de message).
+    (await r.getNotifications().catch(()=>[])).forEach(x=>{if(!cur.has(x.tag)&&!/^Bientôt/.test(x.title||""))x.close()})}
+  const prev=NOTIF_VU;NOTIF_VU=new Map([...cur].map(([k,v])=>[k,v.at]));
+  if(!prev||!r||!document.hidden||!notifSupported()||Notification.permission!=="granted")return; // au démarrage : pas de rafale
+  for(const[k,v]of cur)if(prev.get(k)!==v.at)
+    r.showNotification(v.t,{body:String(v.b||"").slice(0,160),tag:k,renotify:true,icon:"icon-192.png",badge:"img/favicon.png",data:{url:v.u}}).catch(()=>{});
+}
+let notifT;const planNotifs=()=>{clearTimeout(notifT);notifT=setTimeout(majNotifsSysteme,400)};
+document.addEventListener("visibilitychange",planNotifs);
 initStore().then(()=>{route();setTimeout(checkRappels,1500)});

@@ -456,6 +456,18 @@ async function addAt(col,path,o){
   if(MODE==="cloud"){try{await DB.doc(path).set(clean(o))}catch(e){S[col].delete(o.id);changed();dbErr(e);return false}}else saveLocal();
   return true;
 }
+/* ---------- Réactions emoji sur un message (une par personne, comme WhatsApp) ----------
+   Stockées dans le message : reac = {uid: "👍"}. Choisir le même emoji une deuxième fois l'enlève. */
+const msgPath=x=>x.c?`convs/${x.c}/msgs/${x.id}`:x.g?`groupes/${x.g}/msgs/${x.id}`:`messages/${x.id}`;
+const msgCol=x=>x.c?"dmsgs":x.g?"gmsgs":"messages";
+async function reagir(x,emoji){
+  if(!ME||!x)return;
+  const col=msgCol(x),cur=S[col].get(x.id)||x,old=(cur.reac||{})[ME.uid],nv=old===emoji?null:emoji;
+  const reac={...(cur.reac||{})};if(nv)reac[ME.uid]=nv;else delete reac[ME.uid];
+  S[col].set(x.id,{...cur,reac});changed();
+  if(MODE==="cloud"){try{await DB.doc(msgPath(x)).update({["reac."+ME.uid]:nv||firebase.firestore.FieldValue.delete()})}catch(e){S[col].set(x.id,cur);changed();dbErr(e)}}
+  else saveLocal();
+}
 async function delAt(col,path,id){
   const old=S[col].get(id);S[col].delete(id);changed();
   if(MODE==="cloud"){try{await DB.doc(path).delete()}catch(e){if(old)S[col].set(id,old);changed();dbErr(e)}}else saveLocal();

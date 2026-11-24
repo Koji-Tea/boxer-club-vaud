@@ -33,6 +33,13 @@ service cloud.firestore {
     function keys() { return request.resource.data.diff(resource.data).affectedKeys(); }
     function pseudoOwned(uid) { return getAfter(/databases/$(database)/documents/pseudos/$(request.resource.data.pk)).data.uid == uid; }
     function texteOk(t) { return t is string && t.size() > 0 && t.size() <= 2000; }
+    // Réaction emoji : on ne change que sa propre réaction (reac.{uid}) et rien d'autre dans le message.
+    function reaction() {
+      let avant = resource.data.get('reac', {});
+      let apres = request.resource.data.get('reac', {});
+      return keys().hasOnly(['reac']) && apres.diff(avant).affectedKeys().hasOnly([me()])
+        && (!(me() in apres) || (apres[me()] is string && apres[me()].size() <= 16));
+    }
 
     // Réglages du club (textes de l'accueil, annonce, QR code d'adhésion…).
     match /config/main {
@@ -122,6 +129,7 @@ service cloud.firestore {
       allow read: if member();
       allow create: if member() && mine() && texteOk(request.resource.data.texte)
         && request.resource.data.pseudo == get(userPath(me())).data.pseudo;
+      allow update: if member() && reaction();
       allow delete: if signedIn() && (wasMine() || comite());
     }
     // Groupes de discussion : créés par le comité ; chacun·e rejoint ou quitte un groupe ouvert (seulement soi-même).
@@ -148,6 +156,7 @@ service cloud.firestore {
         function inGroup() { return member() && me() in get(/databases/$(database)/documents/groupes/$(g)).data.membres; }
         allow read: if inGroup();
         allow create: if inGroup() && mine() && request.resource.data.g == g && texteOk(request.resource.data.texte);
+        allow update: if inGroup() && reaction();
         allow delete: if signedIn() && (wasMine() || comite());
       }
     }
@@ -159,6 +168,7 @@ service cloud.firestore {
       match /msgs/{m} {
         allow read: if signedIn() && me() in c.split('_');
         allow create: if inConv() && mine() && request.resource.data.c == c && texteOk(request.resource.data.texte);
+        allow update: if inConv() && reaction();
         allow delete: if signedIn() && wasMine();
       }
     }

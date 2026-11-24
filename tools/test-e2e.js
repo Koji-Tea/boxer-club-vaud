@@ -189,6 +189,14 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   await go(A,'#agenda');await A.waitForTimeout(500);
   await E.fill('#chatIn','Qui vient dimanche ?');await E.click('#chatForm button');await E.waitForTimeout(1500);
   ok(await A.evaluate(g=>nonLusCanal(g)>0&&tchatNonLus()>0&&!!document.querySelector('.side a[href="#tchat"] .nonlu'),gid),'nouveau message de groupe signalé (rond non lu)');
+  // Réactions emoji
+  await go(E,'#tchat');await E.waitForTimeout(1200);await E.click('[data-bub]');await E.waitForTimeout(300);await E.click('.reac-pick [data-pe="👍"]');await E.waitForTimeout(1500);
+  ok(await E.evaluate(()=>all('messages').some(x=>(x.reac||{})[ME.uid]==='👍')),'réaction emoji sur un message du tchat');
+  r=await E.evaluate(async()=>{const x=all('messages').find(m=>m.uid!==ME.uid);try{await firebase.firestore().doc('messages/'+x.id).update({texte:'piraté'});return 'ok'}catch(e){return 'refusé'}});
+  ok(r!=='ok','une réaction ne permet pas de modifier le texte');
+  r=await E.evaluate(async()=>{const x=all('messages')[0];try{await firebase.firestore().doc('messages/'+x.id).update({['reac.autre']:'😂'});return 'ok'}catch(e){return 'refusé'}});
+  ok(r!=='ok','on ne réagit pas au nom de quelqu’un d’autre');
+  await go(E,'#tchat/'+gid);await E.waitForTimeout(1200);
   await go(A,'#tchat/'+gid);await A.waitForTimeout(1500);ok((await A.textContent('#chatList')).includes('Coucou les baladeurs'),'message de groupe reçu');
   r=await B.evaluate(async g=>{try{await firebase.firestore().collection('groupes').doc(g).collection('msgs').get();return 'ok'}catch(e){return String(e.message).toLowerCase()}},gid);
   ok(r!=='ok','hors du groupe : fil illisible');
@@ -210,8 +218,10 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   // Messages privés
   await go(E,'#boite/m/'+dUid);await E.waitForTimeout(800);await E.fill('#dmIn','Bonjour Cleo');await E.click('#dmForm button');await E.waitForTimeout(1500);
   await D.waitForTimeout(500);ok(await D.evaluate(()=>all('convs').some(convNonLue)),'message privé reçu (non lu)');
+  ok(await D.evaluate(()=>[...nonLusSysteme().keys()].some(k=>k.startsWith('dm-'))),'notification du téléphone prévue pour le message privé');
   await go(D,'#boite/m/'+eUid);await D.waitForTimeout(1500);ok((await D.textContent('#dmList')).includes('Bonjour Cleo'),'message privé affiché');
   ok(await D.evaluate(()=>!all('convs').some(convNonLue)),'message privé marqué lu');
+  ok(await D.evaluate(()=>![...nonLusSysteme().keys()].some(k=>k.startsWith('dm-'))),'notification du téléphone retirée une fois le message lu');
   r=await B.evaluate(async c=>{try{await firebase.firestore().collection('convs').doc(c).collection('msgs').get();return 'ok'}catch(e){return String(e.message).toLowerCase()}},[dUid,eUid].sort().join('_'));
   ok(r!=='ok','message privé illisible par un tiers');
   // Connexion par pseudo

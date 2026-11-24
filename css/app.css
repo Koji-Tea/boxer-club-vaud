@@ -358,3 +358,16 @@ img.qr-big{display:block;width:100%;max-width:340px;margin:8px auto 14px;backgro
 .gal-it{aspect-ratio:1;border:0;padding:0;border-radius:10px;overflow:hidden;background:var(--surface-2);cursor:pointer;display:grid;place-items:center}
 .gal-it.ko,.gal-cov.ko{opacity:.35}
 .gal-pdf{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px;color:var(--muted);text-align:center;word-break:break-word}
+
+/* Réactions emoji sur les messages */
+.bwrap{display:flex;flex-direction:column;min-width:0;max-width:100%;position:relative}
+.msg.me .bwrap{align-items:flex-end}
+.bub[data-bub]{cursor:pointer;-webkit-user-select:text;user-select:text}
+.reacs{display:flex;flex-wrap:wrap;gap:4px;margin-top:-6px;padding:0 8px;position:relative;z-index:1}
+.reac{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:1px 7px;font-size:.9rem;line-height:1.4;cursor:pointer;box-shadow:var(--shadow)}
+.reac span{font-size:.72rem;font-weight:800;color:var(--muted)}
+.reac.on{border-color:var(--fauve);background:color-mix(in srgb,var(--fauve) 22%,var(--surface))}
+.reac-pick{display:flex;gap:2px;padding:4px 6px;margin-bottom:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;box-shadow:var(--shadow);align-self:flex-start;flex-wrap:nowrap;max-width:none;width:max-content}
+.msg.me .reac-pick{align-self:flex-end}
+.reac-pick button{border:0;background:none;font-size:1.25rem;line-height:1;padding:3px;border-radius:50%;cursor:pointer}
+.reac-pick button.on{background:color-mix(in srgb,var(--fauve) 30%,transparent)}

@@ -1,6 +1,6 @@
 // Garde l'application disponible hors connexion (les données passent par le cache de Firestore).
 // Changer le numéro de version à chaque mise en ligne pour forcer la mise à jour sur les téléphones.
-const C="bcv-v35";
+const C="bcv-v37";
 const FILES=["./","index.html","css/app.css","firebase-config.js","manifest.webmanifest","icon-192.png","icon-512.png","icon-maskable-512.png","apple-touch-icon.png","favicon.ico",
   "img/logo-noir.png","img/logo-blanc.png","img/favicon.png","img/qr-adhesion.png",
   "js/outils.js","js/donnees.js","js/rappels.js","js/vues/vitrine.js","js/vues/cours.js","js/vues/chiots.js","js/vues/wiki.js","js/vues/membres.js","js/vues/messages.js","js/vues/compta.js","js/vues/cabane.js","js/vues/galerie.js","js/app.js",
@@ -17,5 +17,6 @@ self.addEventListener("fetch",e=>{
 // Toucher une notification de rappel ouvre l'app sur l'agenda (et la notification disparaît).
 self.addEventListener("notificationclick",e=>{
   e.notification.close();
-  e.waitUntil(self.clients.matchAll({type:"window"}).then(l=>{const w=l[0];if(w){w.focus();w.navigate&&w.navigate("./#agenda")}else self.clients.openWindow("./#agenda")}));
+  const url="./"+((e.notification.data&&e.notification.data.url)||"#agenda");
+  e.waitUntil(self.clients.matchAll({type:"window"}).then(l=>{const w=l[0];if(w){w.focus();w.navigate&&w.navigate(url)}else self.clients.openWindow(url)}));
 });

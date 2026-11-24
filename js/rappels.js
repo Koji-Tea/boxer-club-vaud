@@ -25,6 +25,13 @@ function downloadIcs(c){
   document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
   toast("Ouvre le fichier pour l’ajouter à ton agenda, avec un rappel.");
 }
+// Bandeau « Activer les notifications sur ce téléphone » (messages), tant que ce n'est pas autorisé.
+const bandeauNotif=()=>ME&&isMember()&&notifSupported()&&Notification.permission==="default"&&!ls("bcv-notif-non")?
+  `<div class="banner info notif-ask">${ico("bell")}<div class="grow">Reçois une notification sur ce téléphone à chaque nouveau message.<div class="row wrap"><button class="btn sm primary" data-notifon>Activer</button><button class="btn sm ghost" data-notifnon>Plus tard</button></div></div></div>`:"";
+function bindBandeauNotif(m){
+  const a=$("[data-notifon]",m);if(a)a.onclick=async()=>{const p=await Notification.requestPermission();toast(p==="granted"?"Notifications activées 🐾":"Notifications refusées : tu peux les réactiver dans les réglages du téléphone.",p==="granted"?"":"bad");rerender()};
+  const n=$("[data-notifnon]",m);if(n)n.onclick=()=>{ls("bcv-notif-non","1");rerender()};
+}
 async function askNotif(){
   if(!notifSupported()){toast("Ce navigateur ne gère pas les notifications. Sur iPhone, installe d’abord l’app sur l’écran d’accueil.","bad");return false}
   const p=await Notification.requestPermission();
