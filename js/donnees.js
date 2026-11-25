@@ -38,6 +38,7 @@ const COLS={
   messages:{},      // tchat général
   groupes:{write:COMITE},gmsgs:{}, // groupes de discussion (messages dans groupes/{id}/msgs)
   convs:{},dmsgs:{},// messages privés (convs/{a_b}/msgs)
+  lus:{},glus:{},   // accusés de lecture du tchat général (lus/{uid}) et des groupes (groupes/{id}/lus/{uid})
   notifs:{},
   users:{},
   prives:{},        // e-mail et téléphone : la personne et le comité seulement
@@ -253,9 +254,9 @@ function listenPublic(){
 }
 // Abonnements qui s'ouvrent à la demande : messages d'un groupe ou d'une conversation privée.
 let DYN={};
-function dynSub(key,col,q){
+function dynSub(key,col,q,fx=d=>d){
   if(DYN[key]||MODE!=="cloud")return;
-  DYN[key]=q.onSnapshot(s=>{s.docChanges().forEach(ch=>{const d={...ch.doc.data(),id:ch.doc.id};if(ch.type==="removed")S[col].delete(d.id);else S[col].set(d.id,d)});changed()},
+  DYN[key]=q.onSnapshot(s=>{s.docChanges().forEach(ch=>{const d=fx({...ch.doc.data(),id:ch.doc.id});if(ch.type==="removed")S[col].delete(d.id);else S[col].set(d.id,d)});changed()},
     e=>{console.warn(key,e.code);delete DYN[key]});
 }
 function dynOff(key){if(key){if(DYN[key])DYN[key]();delete DYN[key];return}Object.values(DYN).forEach(u=>u());DYN={}}
@@ -273,6 +274,7 @@ function listenMembers(){
   sub("inscriptions",DB.collection("inscriptions"));
   sub("galeries",DB.collection("galeries"));
   sub("messages",DB.collection("messages").orderBy("at","desc").limit(200));
+  sub("lus",DB.collection("lus"));
   // Groupes : on écoute aussi le fil des groupes rejoints, pour signaler les nouveaux messages.
   // Groupes privés : invisibles sauf pour leurs membres. On écoute donc les groupes ouverts et ceux dont on fait partie
   // (l'administrateur·rice voit tout, pour pouvoir supprimer un groupe abandonné).
@@ -443,17 +445,21 @@ async function sInscrire(c){
 const seDesinscrire=c=>del("inscriptions",insId(c.id,ME.uid));
 
 /* ---------- Tchat ---------- */
-async function sendMessage(texte){
-  const o={id:uid(),uid:ME.uid,pseudo:ME.pseudo||"",texte:texte.slice(0,2000),at:new Date().toISOString()};
-  S.messages.set(o.id,o);changed();
-  if(MODE==="cloud"){try{await DB.doc("messages/"+o.id).set(clean(o))}catch(e){S.messages.delete(o.id);changed();dbErr(e)}}else saveLocal();
-}
+/* Un message contient un texte, ou un message vocal ({blob,dur,mime} : voir js/vocal.js). */
+const PEND=new Set(); // messages pas encore arrivés sur le serveur (petite horloge au lieu des coches)
+async function sendMessage(t){return addAt("messages","messages/",{id:uid(),uid:ME.uid,pseudo:ME.pseudo||"",at:new Date().toISOString()},t)}
 
 
 /* ---------- Écriture dans une sous-collection (groupes, conversations) ---------- */
-async function addAt(col,path,o){
-  S[col].set(o.id,o);changed();
-  if(MODE==="cloud"){try{await DB.doc(path).set(clean(o))}catch(e){S[col].delete(o.id);changed();dbErr(e);return false}}else saveLocal();
+async function addAt(col,path,o,t){
+  if(typeof t==="string")o.texte=t.slice(0,2000);else if(t)prepVocal(o,t);
+  if(path.endsWith("/"))path+=o.id;
+  S[col].set(o.id,o);PEND.add(o.id);changed();
+  if(MODE==="cloud"){
+    try{if(t&&t.blob)await upVocal(o,t);await DB.doc(path).set(clean(o))}
+    catch(e){PEND.delete(o.id);S[col].delete(o.id);delVocal(o);changed();dbErr(e);return false}
+  }else saveLocal();
+  PEND.delete(o.id);changed();
   return true;
 }
 /* ---------- Réactions emoji sur un message (une par personne, comme WhatsApp) ----------
@@ -485,7 +491,9 @@ async function setMembresGroupe(g,membres){
   membres.filter(u=>!avant.has(u)&&u!==ME.uid).forEach(u=>notifier(u,"Invitation au groupe « "+g.nom+" »",(ME.pseudo||"Le comité")+" t’a ajouté·e au groupe"+(g.prive?" privé":"")+" « "+g.nom+" ».","#tchat/"+g.id));
   return n;
 }
-function watchGroupe(gid){const g=get("groupes",gid);if(dansGroupe(g))dynSub("g:"+gid,"gmsgs",DB.collection("groupes").doc(gid).collection("msgs").orderBy("at","desc").limit(200))}
+function watchGroupe(gid){const g=get("groupes",gid);if(!dansGroupe(g))return;
+  dynSub("g:"+gid,"gmsgs",DB.collection("groupes").doc(gid).collection("msgs").orderBy("at","desc").limit(200));
+  dynSub("l:"+gid,"glus",DB.collection("groupes").doc(gid).collection("lus"),d=>({...d,id:gid+"|"+d.id,k:gid,uid:d.id}))}
 async function rejoindreGroupe(g,on){
   const m=new Set(g.membres||[]);on?m.add(ME.uid):m.delete(ME.uid);
   S.groupes.set(g.id,{...g,membres:[...m]});changed();
@@ -494,8 +502,38 @@ async function rejoindreGroupe(g,on){
     try{const F=firebase.firestore.FieldValue;await DB.doc("groupes/"+g.id).update({membres:on?F.arrayUnion(ME.uid):F.arrayRemove(ME.uid)})}catch(e){S.groupes.set(g.id,g);changed();dbErr(e)}
   }else saveLocal();
 }
-const sendGroupe=(gid,texte)=>{const o={id:uid(),g:gid,uid:ME.uid,pseudo:ME.pseudo||"",texte:texte.slice(0,2000),at:new Date().toISOString()};return addAt("gmsgs",`groupes/${gid}/msgs/${o.id}`,o)};
-const delGroupeMsg=m=>delAt("gmsgs",`groupes/${m.g}/msgs/${m.id}`,m.id);
+const sendGroupe=(gid,t)=>addAt("gmsgs",`groupes/${gid}/msgs/`,{id:uid(),g:gid,uid:ME.uid,pseudo:ME.pseudo||"",at:new Date().toISOString()},t);
+// Supprimer un message (tchat, groupe ou privé) : le son d'un message vocal part avec.
+const delMsg=x=>{delVocal(x);return delAt(msgCol(x),msgPath(x),x.id)};
+const delGroupeMsg=delMsg;
+
+/* ---------- Accusés de lecture (coches grises / bleues) ----------
+   Tchat général et groupes : chaque membre enregistre jusqu'où il a lu (lus/{uid} et groupes/{id}/lus/{uid} : {at}).
+   Messages privés : la conversation garde déjà lu.{uid}. */
+function marquerLu(k,at){
+  if(!ME||!at||!isMember())return;
+  const gen=k==="general",col=gen?"lus":"glus",id=gen?ME.uid:k+"|"+ME.uid,cur=get(col,id);
+  if(cur&&String(cur.at)>=String(at))return;
+  S[col].set(id,{id,k,uid:ME.uid,at});
+  if(MODE==="cloud")DB.doc(gen?"lus/"+ME.uid:`groupes/${k}/lus/${ME.uid}`).set({at}).catch(e=>console.warn("lu",e.code));else saveLocal();
+}
+// Qui a lu ce message (sans son auteur·rice).
+function lecteurs(k,x){
+  const gen=k==="general";
+  return all(gen?"lus":"glus").filter(l=>(gen||l.k===k)&&(l.uid||l.id)!==x.uid&&String(l.at)>=String(x.at)).map(l=>l.uid||l.id);
+}
+// État d'un de ses messages : "pend" (en cours d'envoi), "env" (envoyé, pas encore lu), "lu" (vu).
+function etatTchat(k,x){
+  if(PEND.has(x.id))return{s:"pend"};
+  const qui=lecteurs(k,x),g=k!=="general"&&get("groupes",k);
+  const tot=g?(g.membres||[]).filter(u=>u!==x.uid).length:all("users").filter(u=>MEMBERS.includes(u.role)&&u.id!==x.uid).length;
+  return{s:qui.length?"lu":"env",qui,tot};
+}
+function etatDM(cid,x){
+  if(PEND.has(x.id))return{s:"pend"};
+  const cv=get("convs",cid),o=cv&&(cv.p||[]).find(u=>u!==x.uid);
+  return{s:o&&String((cv.lu||{})[o]||"")>=String(x.at)?"lu":"env"};
+}
 
 /* ---------- Messages non lus du tchat (mémorisé sur cet appareil) ---------- */
 function vuLe(k){const key="bcv-vu-"+k;let v=ls(key);if(v===null){v=new Date().toISOString();ls(key,v)}return v}
@@ -513,24 +551,28 @@ const convId=(a,b)=>[a,b].sort().join("_");
 const autreDe=cv=>(cv.p||[]).find(x=>x!==ME.uid)||ME.uid;
 const convNonLue=cv=>!!cv.lastBy&&cv.lastBy!==ME.uid&&String((cv.lu||{})[ME.uid]||"")<String(cv.lastAt||"");
 function watchConv(cid){dynSub("c:"+cid,"dmsgs",DB.collection("convs").doc(cid).collection("msgs").orderBy("at","desc").limit(200))}
-async function sendDM(to,texte){
+async function sendDM(to,t){
   const cid=convId(ME.uid,to),at=new Date().toISOString(),old=get("convs",cid)||{};
-  const msg={id:uid(),c:cid,uid:ME.uid,texte:texte.slice(0,2000),at};
+  const msg={id:uid(),c:cid,uid:ME.uid,at};
+  if(typeof t==="string")msg.texte=t.slice(0,2000);else prepVocal(msg,t);
   const cv={p:[ME.uid,to].sort(),noms:{...(old.noms||{}),[ME.uid]:ME.pseudo||"",[to]:(get("users",to)||{}).pseudo||(old.noms||{})[to]||""},
-    last:texte.slice(0,140),lastAt:at,lastBy:ME.uid,lu:{...(old.lu||{}),[ME.uid]:at}};
-  S.dmsgs.set(msg.id,msg);S.convs.set(cid,{...cv,id:cid});changed();
+    last:apercuMsg(msg).slice(0,140),lastAt:at,lastBy:ME.uid,lu:{...(old.lu||{}),[ME.uid]:at}};
+  S.dmsgs.set(msg.id,msg);S.convs.set(cid,{...cv,id:cid});PEND.add(msg.id);changed();
   if(MODE==="cloud"){
-    try{const b=DB.batch();b.set(DB.doc("convs/"+cid),cv);b.set(DB.doc(`convs/${cid}/msgs/${msg.id}`),clean(msg));await b.commit()}
-    catch(e){S.dmsgs.delete(msg.id);if(old.p)S.convs.set(cid,old);else S.convs.delete(cid);changed();dbErr(e);return false}
+    try{if(t.blob)await upVocal(msg,t);const b=DB.batch();b.set(DB.doc("convs/"+cid),cv);b.set(DB.doc(`convs/${cid}/msgs/${msg.id}`),clean(msg));await b.commit()}
+    catch(e){PEND.delete(msg.id);S.dmsgs.delete(msg.id);delVocal(msg);if(old.p)S.convs.set(cid,old);else S.convs.delete(cid);changed();dbErr(e);return false}
   }else saveLocal();
+  PEND.delete(msg.id);changed();
   return true;
 }
 async function lireConv(cid){
   const cv=get("convs",cid);if(!cv||!convNonLue(cv))return;
-  const at=new Date().toISOString();S.convs.set(cid,{...cv,lu:{...(cv.lu||{}),[ME.uid]:at}});changed();
+  // Jamais avant le dernier message (si l'horloge du téléphone retarde, la coche passerait quand même au bleu).
+  const now=new Date().toISOString(),at=now>String(cv.lastAt||"")?now:String(cv.lastAt);
+  S.convs.set(cid,{...cv,lu:{...(cv.lu||{}),[ME.uid]:at}});changed();
   if(MODE==="cloud")DB.doc("convs/"+cid).update({["lu."+ME.uid]:at}).catch(e=>console.warn(e));else saveLocal();
 }
-const delDM=m=>delAt("dmsgs",`convs/${m.c}/msgs/${m.id}`,m.id);
+const delDM=delMsg;
 
 /* ---------- Notifications dans l'app (enveloppe en haut) ---------- */
 const mesNotifs=()=>ME?all("notifs").filter(n=>n.to===ME.uid).sort((a,b)=>String(b.at).localeCompare(a.at)):[];

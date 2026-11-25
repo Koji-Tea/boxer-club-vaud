@@ -112,9 +112,9 @@ if("serviceWorker" in navigator&&location.protocol==="https:"&&window.top===wind
 function nonLusSysteme(){
   const out=new Map();if(!ME||!isMember())return out;
   const dernier=l=>l.filter(x=>x.uid!==ME.uid).sort((a,b)=>String(b.at).localeCompare(a.at))[0];
-  if(nonLusCanal("")){const x=dernier(all("messages"));if(x)out.set("t-general",{t:"Tchat : "+(x.pseudo||"nouveau message"),b:x.texte,u:"#tchat",at:x.at})}
+  if(nonLusCanal("")){const x=dernier(all("messages"));if(x)out.set("t-general",{t:"Tchat : "+(x.pseudo||"nouveau message"),b:apercuMsg(x),u:"#tchat",at:x.at})}
   all("groupes").filter(dansGroupe).forEach(g=>{if(!nonLusCanal(g.id))return;const x=dernier(all("gmsgs").filter(m=>m.g===g.id));
-    if(x)out.set("t-"+g.id,{t:g.nom+" : "+(x.pseudo||"nouveau message"),b:x.texte,u:"#tchat/"+g.id,at:x.at})});
+    if(x)out.set("t-"+g.id,{t:g.nom+" : "+(x.pseudo||"nouveau message"),b:apercuMsg(x),u:"#tchat/"+g.id,at:x.at})});
   all("convs").filter(convNonLue).forEach(cv=>{const o=autreDe(cv);out.set("dm-"+cv.id,{t:"Message de "+((get("users",o)||{}).pseudo||(cv.noms||{})[o]||"un membre"),b:cv.last||"",u:"#boite/m/"+o,at:cv.lastAt})});
   mesNotifs().filter(n=>!n.lu).forEach(n=>out.set("n-"+n.id,{t:n.titre,b:n.texte||"",u:n.lien||"#boite",at:n.at}));
   return out;

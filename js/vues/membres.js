@@ -4,13 +4,28 @@
 /* ---------- Fil de discussion (tchat général, groupes, messages privés) ---------- */
 function bindChatForm(m,formId,inId,draftKey,send){
   const f=$("#"+formId,m),inp=$("#"+inId,m);
+  bindVocal(f,inp,send); // bouton micro : send reçoit alors {blob,dur,mime}
   inp.value=ls(draftKey)||"";
   const grow=()=>{inp.style.height="auto";inp.style.height=Math.min(140,inp.scrollHeight)+"px"};
   inp.oninput=()=>{ls(draftKey,inp.value);grow()};
   inp.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey&&matchMedia("(pointer:fine)").matches){e.preventDefault();f.requestSubmit()}};
   f.onsubmit=e=>{e.preventDefault();const t=inp.value.trim();if(!t)return;send(t);inp.value="";ls(draftKey,null);grow();inp.focus()};
 }
-function fillChat(box,list,first,nameOf,canDel,onDel,empty){
+// Coches sous ses propres messages : horloge = envoi en cours, ✓✓ gris = envoyé, ✓✓ bleu = vu.
+const ICO_COCHES=`<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 12.5l4.5 4.5 9-10"/><path d="M10.5 16.5l.5.5 9-10"/></svg>`;
+function cochesHTML(x,e){
+  if(!e)return"";
+  if(e.s==="pend")return` <span class="tick pend" title="Envoi en cours…" aria-label="Envoi en cours">${ico("clock")}</span>`;
+  const lu=e.s==="lu",n=e.qui?e.qui.length:0;
+  const t=lu?(e.qui?`Vu par ${n}${e.tot?" sur "+e.tot:""}`:"Vu"):"Envoyé, pas encore vu";
+  return n?` <button type="button" class="tick lu" data-vus="${esc(x.id)}" title="${esc(t)}" aria-label="${esc(t)}">${ICO_COCHES}<span>${n}</span></button>`
+    :` <span class="tick${lu?" lu":""}" title="${esc(t)}" aria-label="${esc(t)}">${ICO_COCHES}</span>`;
+}
+function vusSheet(x,e){
+  const noms=e.qui.map(id=>get("users",id)).filter(Boolean).sort((a,b)=>String(a.pseudo).localeCompare(b.pseudo));
+  sheet("Vu par",`<p class="small muted">${e.qui.length} personne(s)${e.tot?" sur "+e.tot:""} ont vu ce message.</p><div class="chips">${noms.map(u=>`<span class="chip">${avatar(u.pseudo,u.photo,"xs")} ${esc(u.pseudo)}</span>`).join("")}</div>`);
+}
+function fillChat(box,list,first,nameOf,canDel,onDel,empty,etat){
   if(!box)return;
   const atBottom=first||box.scrollHeight-box.scrollTop-box.clientHeight<80;let prevDay="";
   box.innerHTML=list.length?list.map(x=>{
@@ -19,13 +34,15 @@ function fillChat(box,list,first,nameOf,canDel,onDel,empty){
     // Pseudo et prénom de la personne qui écrit, sur chaque message (y compris les siens).
     const rs=Object.entries(x.reac||{}),cnt=new Map();rs.forEach(([who,e])=>{if(!cnt.has(e))cnt.set(e,[]);cnt.get(e).push(who)});
     const reacs=cnt.size?`<div class="reacs">${[...cnt].map(([e,w])=>`<button class="reac${w.includes(ME.uid)?" on":""}" data-reac="${esc(x.id)}" data-e="${esc(e)}" title="${esc(w.map(id=>(get("users",id)||{}).pseudo||(id===ME.uid?ME.pseudo:"?")).join(", "))}">${esc(e)}${w.length>1?` <span>${w.length}</span>`:""}</button>`).join("")}</div>`:"";
-    return`${sep}<div class="msg ${mine?"me":""}">${mine?"":avatar(nom,u&&u.photo,"sm")}<div class="bwrap"><div class="bub" data-bub="${esc(x.id)}" title="Toucher pour réagir"><b>${esc(nom)}${pre?` <span class="pre">· ${esc(pre)}</span>`:""}</b><p>${rich(x.texte)}</p><small>${esc(fmtAgo(x.at))}${canDel(x)?` · <button class="lnk" data-delmsg="${esc(x.id)}">supprimer</button>`:""}</small></div>${reacs}</div></div>`;
+    return`${sep}<div class="msg ${mine?"me":""}">${mine?"":avatar(nom,u&&u.photo,"sm")}<div class="bwrap"><div class="bub" data-bub="${esc(x.id)}" title="Toucher pour réagir"><b>${esc(nom)}${pre?` <span class="pre">· ${esc(pre)}</span>`:""}</b>${x.audio?vocalHTML(x):`<p>${rich(x.texte)}</p>`}<small>${esc(fmtAgo(x.at))}${mine&&etat?cochesHTML(x,etat(x)):""}${canDel(x)?` · <button class="lnk" data-delmsg="${esc(x.id)}">supprimer</button>`:""}</small></div>${reacs}</div></div>`;
   }).join(""):`<p class="muted center">${esc(empty)}</p>`;
   $$("[data-delmsg]",box).forEach(b=>b.onclick=async e=>{e.stopPropagation();if(await confirmBox("Supprimer ce message ?"))onDel(list.find(x=>x.id===b.dataset.delmsg))});
   // Réactions : toucher une bulle ouvre la barre d'emojis ; toucher une réaction l'ajoute ou l'enlève.
   const byId=id=>list.find(x=>x.id===id);
   $$("[data-reac]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();reagir(byId(b.dataset.reac),b.dataset.e)});
   $$("[data-bub]",box).forEach(b=>b.onclick=e=>{if(e.target.closest("a,button")||getSelection().toString())return;choisirReaction(b,byId(b.dataset.bub))});
+  bindVocaux(box,byId);
+  $$("[data-vus]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();const x=byId(b.dataset.vus);if(x&&etat)vusSheet(x,etat(x))});
   if(atBottom)box.scrollTop=box.scrollHeight;
 }
 
@@ -70,14 +87,16 @@ VIEWS.tchat={t:"Tchat des membres",r(){
   this.fill(m,true);
 },update(m){
   const v=$(".view",m);
-  if(!v||v.dataset.shape!==tchatForme()){v.innerHTML=this.r();this.bind(m);return}
+  // Pendant un enregistrement vocal, on ne redessine que le fil (sinon l'enregistrement serait perdu).
+  if(!v||(v.dataset.shape!==tchatForme()&&!(ENREG&&$("#chatList",m)))){v.innerHTML=this.r();this.bind(m);return}
   if(isMember())this.fill(m,false);
 },fill(m,first){
   const g=ARG&&get("groupes",ARG);
   const list=(g?all("gmsgs").filter(x=>x.g===g.id):all("messages")).sort((a,b)=>String(a.at).localeCompare(b.at));
   // Fil affiché : ses messages sont lus.
-  if(document.visibilityState==="visible")marquerVu(g?g.id:"general",list.length?list[list.length-1].at:"");
-  fillChat($("#chatList",m),list,first,()=>"",x=>x.uid===ME.uid||isComite(),x=>g?delGroupeMsg(x):del("messages",x.id),g?"Aucun message dans ce groupe. Lance la discussion !":"Aucun message pour l’instant. Lance la discussion !");
+  const k=g?g.id:"general",last=list.length?list[list.length-1].at:"";
+  if(document.visibilityState==="visible"){marquerVu(k,last);marquerLu(k,last)}
+  fillChat($("#chatList",m),list,first,()=>"",x=>x.uid===ME.uid||isComite(),delMsg,g?"Aucun message dans ce groupe. Lance la discussion !":"Aucun message pour l’instant. Lance la discussion !",x=>etatTchat(k,x));
 }};
 function groupesSheet(){
   const l=all("groupes").filter(g=>groupeVisible(g)||isAdmin()).sort((a,b)=>dansGroupe(b)-dansGroupe(a)||byNom(a,b));

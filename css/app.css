@@ -8,17 +8,17 @@
   --shadow:0 1px 2px rgba(60,35,10,.06),0 6px 18px rgba(60,35,10,.06);
   --f-display:"Oswald","Arial Narrow",system-ui,sans-serif;
   --f-body:"Nunito Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --r:14px;
+  --r:14px; --lu:#53BDEB;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#14100D; --surface:#1E1914; --surface-2:#2A231C; --ink:#F5EEE6; --muted:#B3A79A; --line:#362D25;
   --fauve:#E0A35A; --fauve-deep:#E0A35A; --accent:#E0A35A; --on-accent:#1A1410; --link:#E9B472;
-  --good:#8BD07C; --good-bg:#1B3220; --warn:#F2BE5C; --warn-bg:#3A2C10; --bad:#FF8A7E; --bad-bg:#3E1A1A; --info:#9CC2EA; --info-bg:#1A2A40;
+  --good:#8BD07C; --good-bg:#1B3220; --warn:#F2BE5C; --warn-bg:#3A2C10; --bad:#FF8A7E; --bad-bg:#3E1A1A; --info:#9CC2EA; --info-bg:#1A2A40; --lu:#0A78C2;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#14100D; --surface:#1E1914; --surface-2:#2A231C; --ink:#F5EEE6; --muted:#B3A79A; --line:#362D25;
   --fauve:#E0A35A; --fauve-deep:#E0A35A; --accent:#E0A35A; --on-accent:#1A1410; --link:#E9B472;
-  --good:#8BD07C; --good-bg:#1B3220; --warn:#F2BE5C; --warn-bg:#3A2C10; --bad:#FF8A7E; --bad-bg:#3E1A1A; --info:#9CC2EA; --info-bg:#1A2A40;
+  --good:#8BD07C; --good-bg:#1B3220; --warn:#F2BE5C; --warn-bg:#3A2C10; --bad:#FF8A7E; --bad-bg:#3E1A1A; --info:#9CC2EA; --info-bg:#1A2A40; --lu:#0A78C2;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25); color-scheme:dark}
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -371,3 +371,37 @@ img.qr-big{display:block;width:100%;max-width:340px;margin:8px auto 14px;backgro
 .msg.me .reac-pick{align-self:flex-end}
 .reac-pick button{border:0;background:none;font-size:1.25rem;line-height:1;padding:3px;border-radius:50%;cursor:pointer}
 .reac-pick button.on{background:color-mix(in srgb,var(--fauve) 30%,transparent)}
+
+/* Messages vocaux : bouton micro (à la place d'« Envoyer » quand le champ est vide) et barre d'enregistrement */
+.chat-form .mic{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:transform .15s}
+.chat-form.vide>.btn:not(.mic){display:none}
+.chat-form:not(.vide)>.mic{display:none}
+.chat-form.rec>textarea,.chat-form.rec>.btn:not(.mic),.chat-form.locked>.mic{display:none}
+.chat-form.rec .mic{background:var(--bad);border-color:var(--bad);color:#fff;transform:scale(1.2)}
+.rec-bar{flex:1;display:flex;align-items:center;gap:10px;min-height:46px;padding:0 6px 0 14px;border-radius:23px;background:var(--surface);border:1.5px solid var(--line);min-width:0}
+.rec-bar[hidden]{display:none}
+.rec-bar .btn{width:38px;height:38px;flex:none}
+.rec-dot{width:10px;height:10px;border-radius:50%;background:var(--bad);animation:recb 1s infinite;flex:none}
+@keyframes recb{50%{opacity:.25}}
+.rec-t{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.rec-hint{color:var(--muted);font-size:.9rem;text-align:right;white-space:nowrap;overflow:hidden;transform:translateX(calc(-1 * var(--dx,0px)))}
+.rec-x{color:var(--bad)}
+/* Lecteur dans une bulle */
+.vocal{display:flex;align-items:center;gap:10px;width:min(240px,60vw);padding:4px 0}
+.vplay{width:38px;height:38px;border-radius:50%;border:0;background:var(--fauve);color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:none;cursor:pointer}
+.vplay .ico{width:18px;height:18px}
+.vplay .s,.vocal.on .vplay .p{display:none}
+.vocal.on .vplay .s{display:block}
+.vocal.wait .vplay{animation:recb 1s infinite}
+.vbar{flex:1;height:26px;border:0;background:none;padding:0;cursor:pointer;position:relative;color:inherit}
+.vbar::before{content:"";position:absolute;left:0;right:0;top:50%;height:4px;margin-top:-2px;border-radius:2px;background:currentColor;opacity:.25}
+.vbar i{position:absolute;left:0;top:50%;height:4px;margin-top:-2px;border-radius:2px;background:var(--fauve);width:0}
+.vdur{font-size:.78rem;font-variant-numeric:tabular-nums;opacity:.8;min-width:2.6em;text-align:right}
+/* Accusés de lecture : ✓✓ gris = envoyé, ✓✓ bleu = vu */
+.bub small{opacity:1;color:color-mix(in srgb,currentColor 65%,transparent)}
+.tick{display:inline-flex;align-items:center;gap:1px;vertical-align:-3px;color:inherit;border:0;background:none;padding:0;font:inherit;cursor:default}
+.tick .ico{width:16px;height:16px}
+.tick.pend .ico{width:12px;height:12px}
+.tick.lu{color:var(--lu)}
+button.tick{cursor:pointer}
+.tick span{font-size:.7rem;font-weight:800;margin-left:1px}
