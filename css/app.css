@@ -405,3 +405,12 @@ img.qr-big{display:block;width:100%;max-width:340px;margin:8px auto 14px;backgro
 .tick.lu{color:var(--lu)}
 button.tick{cursor:pointer}
 .tick span{font-size:.7rem;font-weight:800;margin-left:1px}
+/* Chiens partagés entre plusieurs maîtres */
+.nouveau-chien{display:contents}
+.nouveau-chien[hidden],.deja-only[hidden],.pick-c[hidden]{display:none}
+.deja-only small{color:var(--muted)}
+.chien-ms{display:flex;flex-direction:column;align-items:center;gap:2px}
+.chien-ms .chien-m{margin-top:2px}
+.dbl{margin-top:8px}
+.a-relier{border:1.5px dashed var(--line)}
+.pick-c{width:100%;text-align:left;margin:0}

@@ -125,6 +125,7 @@ VIEWS.club={t:"Comité & adhérents",r(){
   const q=$("#adhQ",m);if(q)q.oninput=()=>{const t=norm(q.value);$$(".adh",m).forEach(x=>x.hidden=t&&!norm(x.dataset.s).includes(t))};
   const qc=$("#chQ",m);if(qc)qc.oninput=()=>{const t=norm(qc.value);let n=0;$$(".chien-c",m).forEach(x=>{x.hidden=!!t&&!norm(x.dataset.s).includes(t);if(!x.hidden)n++});$("#chNb",m).textContent=n};
   $$("[data-user]",m).forEach(b=>b.onclick=()=>userSheet(get("users",b.dataset.user)));
+  if(ARG==="chiens")bindChiens(m);
   bindRoleSelects(m);bindCotis(m);bindQR(m);
   const ib=$("#infoBcs",m);if(ib)ib.onclick=()=>sheet("Adhésion au Boxer Club Suisse",`<p>${esc(INFO_BCS)}</p>`);
   $$("[data-adhf]",m).forEach(b=>b.onclick=()=>{ls("bcv-adh-f",b.dataset.adhf);rerender()});
@@ -221,20 +222,59 @@ function userRow(u){
     <span class="badges">${roleBadge(u)}${com&&u.bcv?`<span class="badge">BCV</span>`:""}${com&&u.bcs?`<span class="badge">BCS</span>`:""}</span></button>`;
 }
 // Fiche d'un·e adhérent·e et de ses chiens, avec un bouton pour lui écrire.
-/* ---------- Chiens du club : les chiens des adhérent·es mis en avant (consultation seulement) ---------- */
+/* ---------- Chiens du club : les chiens des adhérent·es, une fiche par chien avec tous ses maîtres ---------- */
+const maitresHTML=ms=>ms.map(u=>`<button class="lnk small chien-m" data-user="${esc(u.id)}">${avatar(u.pseudo,u.photo,"xs")} ${esc(u.pseudo)}${u.prenom?" · "+esc(u.prenom):""}</button>`).join("");
+const infoChien=c=>[SEXES[c.sexe],c.race,c.naissance?ageFrom(c.naissance):""].filter(Boolean).map(esc).join(" · ");
+// Doublons possibles : même nom, fiches tenues par des personnes différentes.
+function doublonsChiens(l){
+  const g=new Map();l.forEach(d=>{const k=norm(d.c.nom);if(!g.has(k))g.set(k,[]);g.get(k).push(d)});
+  return[...g.values()].filter(x=>x.length>1);
+}
 function chiensHTML(){
   const lock=membersOnly("Les chiens du club");if(lock)return lock;
-  const l=all("users").filter(u=>MEMBERS.includes(u.role)).flatMap(u=>{const cs=(u.chiens||[]).filter(c=>c&&c.nom);
-    return(cs.length?cs:u.chien?[{nom:u.chien}]:[]).map(c=>({c,u}))}).sort((a,b)=>String(a.c.nom).localeCompare(b.c.nom,"fr"));
+  const l=chiensDuClub(),adm=isAdhEdit();
   if(!l.length)return`<p class="muted">Aucun chien enregistré pour l’instant. Chacun·e ajoute ses chiens dans « Mon compte ».</p>`;
+  const dbl=adm?doublonsChiens(l):[];
   return`<p class="lead">Les chiens des adhérent·es du club. Tu connais le chien mais pas son maître ? Cherche-le ici.</p>
+    ${dbl.length?`<div class="banner info">${ico("paw")}<div class="grow"><b>Doublons possibles</b><br><span class="small">Le même chien a peut-être été inscrit par chacun de ses maîtres. Fusionne les fiches pour n’en garder qu’une, avec tous les maîtres.</span>
+      ${dbl.map(x=>`<div class="row wrap dbl"><span class="grow small"><b>${esc(x[0].c.nom)}</b> : ${x.map(d=>esc(d.t.pseudo)).join(", ")}</span><button class="btn sm" data-fus="${esc(cleChien(x[0].t.id,x[0].c))}" data-avec="${esc(cleChien(x[1].t.id,x[1].c))}">Fusionner</button></div>`).join("")}</div></div>`:""}
     <div class="search">${ico("search")}<input id="chQ" type="search" placeholder="Nom du chien, race, maître…"></div>
     <p class="small muted"><span id="chNb">${l.length}</span> chien(s)</p>
-    <div class="chiens">${l.map(({c,u})=>`<div class="card chien-c" data-s="${esc([c.nom,c.race,SEXES[c.sexe],u.pseudo,u.prenom].filter(Boolean).join(" "))}">
+    <div class="chiens">${l.map(({c,t,maitres})=>`<div class="card chien-c" data-s="${esc([c.nom,c.race,SEXES[c.sexe],...maitres.flatMap(u=>[u.pseudo,u.prenom])].filter(Boolean).join(" "))}">
       <div class="chien-ph">${c.photo?`<img alt="${esc(c.nom)}" src="${esc(c.photo)}">`:`<span>${esc(String(c.nom).slice(0,1).toUpperCase())}</span>`}</div>
       <b class="chien-nom">${esc(c.nom)}</b>
-      <span class="small">${[SEXES[c.sexe],c.race,c.naissance?ageFrom(c.naissance):""].filter(Boolean).map(esc).join(" · ")||"&nbsp;"}</span>
-      <button class="lnk small chien-m" data-user="${esc(u.id)}">${avatar(u.pseudo,u.photo,"xs")} ${esc(u.pseudo)}${u.prenom?" · "+esc(u.prenom):""}</button></div>`).join("")}</div>`;
+      <span class="small">${infoChien(c)||"&nbsp;"}</span>
+      <div class="chien-ms">${maitresHTML(maitres)}</div>
+      ${adm?`<button class="lnk small muted" data-fus="${esc(cleChien(t.id,c))}">Fusionner…</button>`:""}</div>`).join("")}</div>`;
+}
+const chienParCle=k=>chiensDuClub().find(d=>cleChien(d.t.id,d.c)===k);
+// Liste des chiens du club pour en choisir un (se relier à un chien, fusionner deux fiches).
+function choisirChien(titre,{intro="",nom="",exclure=()=>false,onPick}){
+  const l=chiensDuClub().filter(d=>!exclure(d));
+  const n=norm(nom||"");l.sort((a,b)=>(norm(b.c.nom)===n)-(norm(a.c.nom)===n));
+  const s=sheet(titre,`${intro?`<p class="small">${intro}</p>`:""}<div class="search">${ico("search")}<input id="pkQ" type="search" placeholder="Nom du chien ou du maître…" value="${esc(nom||"")}"></div>
+    ${l.length?`<div class="list pick-chiens">${l.map(d=>`<button class="card row pick-c" data-pk="${esc(cleChien(d.t.id,d.c))}" data-s="${esc([d.c.nom,d.c.race,...d.maitres.flatMap(u=>[u.pseudo,u.prenom])].filter(Boolean).join(" "))}">
+      ${avatar(d.c.nom,d.c.photo,"lg")}<span class="grow"><b>${esc(d.c.nom)}</b><br><span class="small">${infoChien(d.c)}</span><br><span class="small muted">${d.maitres.map(u=>esc(u.pseudo)).join(", ")}</span></span>${ico("plus")}</button>`).join("")}</div>
+      <p class="small muted" id="pkNone" hidden>Aucun chien trouvé. Efface la recherche pour voir toute la liste.</p>`:`<p class="muted">Aucun autre chien inscrit pour l’instant.</p>`}`);
+  const q=$("#pkQ",s),f=()=>{const t=norm(q.value);let k=0;$$(".pick-c",s).forEach(x=>{x.hidden=!!t&&!norm(x.dataset.s).includes(t);if(!x.hidden)k++});const no=$("#pkNone",s);if(no)no.hidden=!!k};
+  if(q){q.oninput=f;f()}
+  $$("[data-pk]",s).forEach(b=>b.onclick=async()=>{const d=l.find(x=>cleChien(x.t.id,x.c)===b.dataset.pk);if(!d)return;b.disabled=true;
+    try{await onPick(d)}catch(e){toast(e.message||"Impossible pour l’instant","bad")}finally{b.disabled=false}});
+  return s;
+}
+// Comité : fusion de deux fiches du même chien, en choisissant celle qu'on garde.
+function fusionChiens(a,b){
+  const opt=(d,i)=>`<button class="card row pick-c" data-keep="${i}">${avatar(d.c.nom,d.c.photo,"lg")}<span class="grow"><b>Garder la fiche de ${esc(d.t.pseudo)}</b><br><span class="small">${infoChien(d.c)||"Peu d’infos"}${d.c.photo?" · avec photo":" · sans photo"}</span></span></button>`;
+  const s=sheet("Fusionner "+a.c.nom,`<p class="small">Il ne restera qu’une fiche, avec tous les maîtres (${[...new Set([...a.maitres,...b.maitres].map(u=>u.pseudo))].map(esc).join(", ")}). Les infos qui manquent dans la fiche gardée (photo, date de naissance…) sont reprises de l’autre.</p>
+    <div class="list">${opt(a,0)}${opt(b,1)}</div>`);
+  $$("[data-keep]",s).forEach(x=>x.onclick=async()=>{const[k,o]=x.dataset.keep==="0"?[a,b]:[b,a];$$("[data-keep]",s).forEach(y=>y.disabled=true);
+    try{await fusionnerChiens(k,o);closeSheet();toast("Fiches fusionnées 🐾")}catch(e){$$("[data-keep]",s).forEach(y=>y.disabled=false)}});
+}
+function bindChiens(m){
+  $$("[data-fus]",m).forEach(b=>b.onclick=()=>{const a=chienParCle(b.dataset.fus);if(!a)return;
+    const avec=b.dataset.avec&&chienParCle(b.dataset.avec);if(avec){fusionChiens(a,avec);return}
+    choisirChien("Fusionner "+a.c.nom+" avec…",{nom:a.c.nom,intro:`Choisis l’autre fiche du même chien (celle-ci est tenue par ${esc(a.t.pseudo)}).`,
+      exclure:d=>cleChien(d.t.id,d.c)===cleChien(a.t.id,a.c),onPick:d=>fusionChiens(a,d)})});
 }
 function userSheet(u){
   if(!u)return;
@@ -244,18 +284,21 @@ function userSheet(u){
     ${isMember()&&u.id!==ME.uid&&MEMBERS.includes(u.role)?`<div class="row"><a class="btn primary" href="#boite/m/${esc(u.id)}">${ico("mail")} Envoyer un message</a></div>`:""}
     ${com?`<div class="card soft">${kv("E-mail",mailLink(p.email))}${kv("Téléphone",telLink(p.tel))}${kv("Adhésion",[u.bcv?"Boxer Club Vaud":"",u.bcs?"Boxer Club Suisse":""].filter(Boolean).join(" · "))}
       ${kv("Cotisation "+an,cotisPayee(u.id)?"Payée"+(dt?" le "+esc(fmtDayY(dt)):""):"Pas encore payée")}<p class="small muted">Visible seulement par le comité.</p></div>`:""}
-    ${(u.chiens||[]).length?`<h3>Ses chiens</h3>${dogsHTML(u.chiens,u.id)}`:`<p class="muted">Aucun chien renseigné.</p>`}`);
+    ${chiensDe(u).filter(d=>!d.perdu).length?`<h3>Ses chiens</h3>${dogsHTML(chiensDe(u).filter(d=>!d.perdu),u.id)}`:`<p class="muted">Aucun chien renseigné.</p>`}`);
   bindFichiers(s);
 }
-// Vaccins du chien et carnet joint : visibles seulement par la personne elle-même et le comité.
-function vaccinHTML(c,uid){
-  if(!uid||!(isComite()||(ME&&uid===ME.uid)))return"";
+// Vaccins du chien : visibles par ses maîtres et le comité ; le carnet joint, par son ou sa titulaire et le comité.
+function vaccinHTML(c,uid,maitres){
+  const titu=!!(ME&&uid===ME.uid),voir=isComite()||titu,st0=voir||!!(ME&&(maitres||[]).some(u=>u&&u.id===ME.uid));
+  if(!uid||!st0)return"";
   const st=c.vaccin?`<span class="badge good">💉 Vacciné${c.sexe==="F"?"e":""}${c.vaccinDate?" · rappel le "+esc(fmtDayY(c.vaccinDate)):""}</span>`:c.vaccin===false?`<span class="badge bad">Pas vacciné${c.sexe==="F"?"e":""}</span>`:"";
-  const voir=uid&&(isComite()||(ME&&uid===ME.uid));
   return(st||(voir&&(c.carnet||[]).length)?`<div class="vacc">${st}${voir?fichiersHTML(c.carnet):""}</div>`:"");
 }
+// Liste des chiens d'un compte (résultat de chiensDe) : un chien partagé indique ses autres maîtres.
 function dogsHTML(list,uid){
-  return`<div class="dogs">${(list||[]).map(c=>`<div class="dog">${avatar(c.nom,c.photo,"lg")}<div><b>${esc(c.nom||"Sans nom")}</b>
+  return`<div class="dogs">${(list||[]).map(d=>{const c=d.c,t=d.t||{id:uid},ms=d.aRelier?[]:maitresDe(t.id,c),autres=ms.filter(u=>u.id!==uid);
+    return`<div class="dog">${avatar(c.nom,c.photo,"lg")}<div><b>${esc(c.nom||"Sans nom")}</b>
     <div class="small">${[SEXES[c.sexe],c.race,c.naissance?ageFrom(c.naissance)+" (né"+(c.sexe==="F"?"e":"")+" le "+fmtDayY(c.naissance)+")":""].filter(Boolean).map(esc).join(" · ")}</div>
-    ${c.remarque?`<p class="small">${rich(c.remarque)}</p>`:""}${vaccinHTML(c,uid)}</div></div>`).join("")}</div>`;
+    ${autres.length?`<p class="small">👥 Avec ${autres.map(u=>esc(u.pseudo)).join(", ")}</p>`:""}${d.aRelier?`<p class="small muted">Déjà inscrit par un autre maître${c.autre?" ("+esc(c.autre)+")":""} : à relier à sa fiche.</p>`:""}
+    ${c.remarque?`<p class="small">${rich(c.remarque)}</p>`:""}${vaccinHTML(c,t.id,ms)}</div></div>`}).join("")}</div>`;
 }

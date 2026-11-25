@@ -116,7 +116,9 @@ service cloud.firestore {
             && keys().hasOnly(['pseudo', 'pk', 'prenom', 'chiens', 'chien', 'photo', 'bcv', 'bcs'])
             && (!keys().hasAny(['pk']) || pseudoOwned(uid)))
         || (adhEdit() && keys().hasOnly(['role']) && request.resource.data.role in allRoles()
-            && canGiveRole(resource.data.role, request.resource.data.role));
+            && canGiveRole(resource.data.role, request.resource.data.role))
+        // Chiens partagés : la gestion des adhérents relie le chien d'un compte à une fiche existante et fusionne les doublons.
+        || (adhEdit() && keys().hasOnly(['chiens', 'chien']));
       allow delete: if adhEdit() && me() != uid && canGiveRole(resource.data.role, 'attente');
     }
     // E-mail et téléphone : la personne elle-même et le comité.
