@@ -53,6 +53,12 @@ Sans service de stockage payant, chaque fichier est enregistré dans la base Fir
 
 Les droits sont vérifiés par la base elle-même (`firestore.rules`), pas seulement par l’interface.
 
+## Messages vocaux et accusés de lecture
+
+- **Messages vocaux** (tchat, groupes, messages privés) : quand le champ est vide, le bouton Envoyer devient un micro. Maintenir pour enregistrer, relâcher pour envoyer, glisser vers la gauche pour annuler. Un appui court verrouille l’enregistrement (Supprimer / Envoyer). 3 minutes au plus. On écoute directement dans la bulle (barre de progression, toucher la barre pour avancer).
+- Sans Firebase Storage (offre gratuite), le son est rangé dans Firestore à côté des messages (morceaux de moins de 1 Mo), et téléchargé seulement quand on l’écoute. Supprimer le message supprime aussi le son.
+- **Coches** sous ses propres messages : horloge = envoi en cours, ✓✓ grises = envoyé, ✓✓ bleues = vu. Dans le tchat général et les groupes, le chiffre donne combien de personnes l’ont vu ; le toucher affiche leurs noms.
+
 ## Rappels avant les cours
 
 - **« Ajouter à mon agenda »** sur chaque cours : le cours arrive dans l’agenda du téléphone avec une alarme. C’est le rappel le plus sûr, même app fermée.
@@ -111,5 +117,6 @@ tools/                préparation du logo et des icônes, test complet avec les
 ```
 python3 -m http.server 8765 &
 npx firebase emulators:exec --project demo-bcv --only firestore,auth "node tools/test-e2e.js"
+npx firebase emulators:exec --project demo-bcv --only firestore,auth "node tools/test-vocal.js"   # messages vocaux et coches (micro simulé)
 ```
 Le test crée des comptes, vérifie le premier administrateur, la validation, le tchat, les inscriptions, les portées et que chaque rôle est bien limité.

@@ -54,6 +54,6 @@ function bindConv(m,other){
 function fillConv(m,other,first){
   const cid=convId(ME.uid,other);
   const list=all("dmsgs").filter(x=>x.c===cid).sort((a,b)=>String(a.at).localeCompare(b.at));
-  fillChat($("#dmList",m),list,first,x=>x.uid===ME.uid?ME.pseudo:((get("users",x.uid)||{}).pseudo||""),x=>x.uid===ME.uid,x=>delDM(x),"Aucun message pour l’instant. Dis bonjour 👋");
+  fillChat($("#dmList",m),list,first,x=>x.uid===ME.uid?ME.pseudo:((get("users",x.uid)||{}).pseudo||""),x=>x.uid===ME.uid,x=>delDM(x),"Aucun message pour l’instant. Dis bonjour 👋",x=>etatDM(cid,x));
   if(document.visibilityState==="visible")lireConv(cid);
 }

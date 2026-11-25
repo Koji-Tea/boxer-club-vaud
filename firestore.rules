@@ -33,6 +33,21 @@ service cloud.firestore {
     function keys() { return request.resource.data.diff(resource.data).affectedKeys(); }
     function pseudoOwned(uid) { return getAfter(/databases/$(database)/documents/pseudos/$(request.resource.data.pk)).data.uid == uid; }
     function texteOk(t) { return t is string && t.size() > 0 && t.size() <= 2000; }
+    // Un message : un texte, ou un message vocal (texte vide + audio : durée en secondes, nombre de morceaux).
+    function audioOk(a) {
+      return a is map && a.dur is number && a.dur > 0 && a.dur <= 200 && a.n is int && a.n >= 1 && a.n <= 5
+        && a.mime is string && a.mime.size() <= 60;
+    }
+    function contenuOk(d) {
+      return texteOk(d.get('texte', '')) || (d.get('texte', '') == '' && audioOk(d.get('audio', null)));
+    }
+    // Un morceau de message vocal (moins de 1 Mo) : écrit par son auteur·rice, jamais modifié.
+    function morceauOk() {
+      let d = request.resource.data;
+      return d.uid == me() && d.data is bytes && d.data.size() <= 1000000 && d.i is int && d.n is int && d.i < d.n;
+    }
+    // Accusé de lecture : chacun·e n'écrit que le sien, {at: date du dernier message vu}.
+    function luOk(u) { return me() == u && request.resource.data.keys().hasOnly(['at']) && request.resource.data.at is string; }
     // Réaction emoji : on ne change que sa propre réaction (reac.{uid}) et rien d'autre dans le message.
     function reaction() {
       let avant = resource.data.get('reac', {});
@@ -127,10 +142,20 @@ service cloud.firestore {
     // Tchat général.
     match /messages/{id} {
       allow read: if member();
-      allow create: if member() && mine() && texteOk(request.resource.data.texte)
+      allow create: if member() && mine() && contenuOk(request.resource.data)
         && request.resource.data.pseudo == get(userPath(me())).data.pseudo;
       allow update: if member() && reaction();
       allow delete: if signedIn() && (wasMine() || comite());
+    }
+    // Son des messages vocaux du tchat général, et accusés de lecture du tchat général.
+    match /audios/{id} {
+      allow read: if member();
+      allow create: if member() && morceauOk();
+      allow delete: if signedIn() && (wasMine() || comite());
+    }
+    match /lus/{u} {
+      allow read: if member();
+      allow write: if member() && luOk(u);
     }
     // Groupes de discussion : créés par le comité ; chacun·e rejoint ou quitte un groupe ouvert (seulement soi-même).
     // Un groupe privé (prive == true) est caché : seuls ses membres le voient, et seul un membre du comité qui en fait partie
@@ -151,11 +176,20 @@ service cloud.firestore {
       allow delete: if comite() && (ouvert(resource.data) || dedans(resource.data) || isAdmin());
       allow update: if (comite() && (ouvert(resource.data) || dedans(resource.data) || isAdmin()))
         || (member() && joinLeave());
-      // Le fil d'un groupe : lu et écrit par ses membres seulement.
-      match /msgs/{m} {
-        function inGroup() { return member() && me() in get(/databases/$(database)/documents/groupes/$(g)).data.membres; }
+      // Le fil d'un groupe, le son de ses messages vocaux et ses accusés de lecture : membres du groupe seulement.
+      function inGroup() { return member() && me() in get(/databases/$(database)/documents/groupes/$(g)).data.membres; }
+      match /audios/{a} {
         allow read: if inGroup();
-        allow create: if inGroup() && mine() && request.resource.data.g == g && texteOk(request.resource.data.texte);
+        allow create: if inGroup() && morceauOk();
+        allow delete: if signedIn() && (wasMine() || comite());
+      }
+      match /lus/{u} {
+        allow read: if inGroup();
+        allow write: if inGroup() && luOk(u);
+      }
+      match /msgs/{m} {
+        allow read: if inGroup();
+        allow create: if inGroup() && mine() && request.resource.data.g == g && contenuOk(request.resource.data);
         allow update: if inGroup() && reaction();
         allow delete: if signedIn() && (wasMine() || comite());
       }
@@ -165,9 +199,14 @@ service cloud.firestore {
       function inConv() { return member() && me() in c.split('_'); }
       allow read: if signedIn() && me() in resource.data.p;
       allow create, update: if inConv() && request.resource.data.p == c.split('_');
+      match /audios/{a} {
+        allow read: if signedIn() && me() in c.split('_');
+        allow create: if inConv() && morceauOk();
+        allow delete: if signedIn() && wasMine();
+      }
       match /msgs/{m} {
         allow read: if signedIn() && me() in c.split('_');
-        allow create: if inConv() && mine() && request.resource.data.c == c && texteOk(request.resource.data.texte);
+        allow create: if inConv() && mine() && request.resource.data.c == c && contenuOk(request.resource.data);
         allow update: if inConv() && reaction();
         allow delete: if signedIn() && wasMine();
       }

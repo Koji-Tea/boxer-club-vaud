@@ -42,7 +42,7 @@ function tchatApercu(){
     ${l.length?`<div class="card apercu">${l.map(x=>{const u=get("users",x.uid)||(x.uid===ME.uid?ME:null),nom=x.pseudo||(u&&u.pseudo)||"",pre=u&&u.prenom,g=grp.get(x._c);
       const neuf=x.uid!==ME.uid&&String(x.at)>vuLe(x._c||"general");
       return`<a class="ap-msg${neuf?" neuf":""}" href="#tchat${x._c?"/"+esc(x._c):""}">${avatar(nom,u&&u.photo,"sm")}<span class="grow"><b>${esc(nom)}${pre?` <span class="muted">· ${esc(pre)}</span>`:""}</b>
-        <span class="small muted"> · ${g?esc(g.nom):"Général"} · ${esc(fmtAgo(x.at))}</span><br><span class="small ap-txt">${esc(String(x.texte).slice(0,140))}</span></span></a>`}).join("")}</div>`
+        <span class="small muted"> · ${g?esc(g.nom):"Général"} · ${esc(fmtAgo(x.at))}</span><br><span class="small ap-txt">${esc(apercuMsg(x).slice(0,140))}</span></span></a>`}).join("")}</div>`
       :`<p class="muted">Aucun message pour l’instant. <a href="#tchat">Lance la discussion</a></p>`}`;
 }
 
