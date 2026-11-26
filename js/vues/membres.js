@@ -145,6 +145,23 @@ function editGroupe(o){
 }
 
 /* ---------- Compte ---------- */
+// Un de mes chiens dans « Mon compte » : ma fiche, un chien partagé (fiche tenue par un autre maître) ou un chien à relier.
+function monChienHTML(d){
+  const c=d.c,ms=d.perdu||d.aRelier?[]:maitresDe(d.t.id,c),autres=ms.filter(u=>u.id!==ME.uid);
+  const info=[SEXES[c.sexe],c.race,c.naissance?ageFrom(c.naissance):""].filter(Boolean).map(esc).join(" · ");
+  if(d.aRelier){
+    const sim=isMember()?chiensDuClub().filter(x=>x.t.id!==ME.uid&&norm(x.c.nom)===norm(c.nom)):[];
+    return`<div class="card dog a-relier">${avatar(c.nom,"","lg")}<div class="grow"><b>${esc(c.nom)}</b>
+      <p class="small">Déjà inscrit par un autre maître${c.autre?" ("+esc(c.autre)+")":""} : relie-toi à sa fiche pour ne pas créer de doublon.</p>
+      ${isMember()?`<div class="row wrap">${sim.length===1?`<button class="btn sm primary" data-relier="${d.i}" data-cle="${esc(cleChien(sim[0].t.id,sim[0].c))}">C’est ${esc(c.nom)} de ${esc(sim[0].t.pseudo)}</button>`:""}<button class="btn sm${sim.length===1?" ghost":" primary"}" data-relier="${d.i}">Choisir dans la liste</button><button class="btn sm ghost" data-propre="${d.i}">Créer sa fiche moi-même</button></div>`
+        :`<p class="small muted">Tu pourras le choisir dans la liste des chiens du club dès que le comité aura validé ton compte.</p>`}</div></div>`;
+  }
+  if(d.perdu)return`<button class="card dog" data-dog="${d.i}">${avatar(c.nom,"","lg")}<div class="grow"><b>${esc(c.nom)}</b><p class="small muted">La fiche de ce chien a été supprimée par son ou sa titulaire. Touche pour le retirer de ton profil.</p></div>${ico("trash")}</button>`;
+  return`<button class="card dog" data-dog="${d.i}">${avatar(c.nom,c.photo,"lg")}<div class="grow"><b>${esc(c.nom)}</b>
+    <div class="small">${info}</div>${c.remarque?`<p class="small">${esc(c.remarque)}</p>`:""}
+    ${autres.length?`<p class="small">👥 ${d.lien?"Fiche tenue par "+esc(d.t.pseudo)+(autres.length>1?", avec "+autres.filter(u=>u.id!==d.t.id).map(u=>esc(u.pseudo)).join(", "):""):"Avec "+autres.map(u=>esc(u.pseudo)).join(", ")}</p>`:""}
+    ${vaccinHTML(c,d.t.id,ms)}</div>${ico(d.lien?"eye":"edit")}</button>`;
+}
 const DOG_FIELDS=[{k:"nom",l:"Nom du chien",req:true,half:true},{k:"sexe",l:"Sexe",t:"select",o:[["M","Mâle"],["F","Femelle"]],half:true},
   {k:"naissance",l:"Date de naissance",t:"date",half:true,h:"L’âge se calcule tout seul."},{k:"race",l:"Race",half:true,d:"Boxer"},
   {k:"photo",l:"Photo",t:"photo"},{k:"remarque",l:"Commentaire",t:"textarea",rows:2,ph:"Castré, stérilisée, allergies, caractère…"},
@@ -162,10 +179,9 @@ VIEWS.compte={t:"Mon compte",r(){
     <div class="card"><p>${[ME.bcv?"Adhérent·e Boxer Club Vaud":"",ME.bcs?"Adhérent·e Boxer Club Suisse":""].filter(Boolean).join(" · ")||`<span class="muted">Adhésion pas encore indiquée (Modifier mon profil).</span>`}</p>
       ${S.cotisations.has(ME.uid)||isComite()?`<p class="small">Cotisation ${labelAn(anneeCotis())} : ${cotisPayee(ME.uid)?`<b>payée</b>${cotisDate(ME.uid)?" le "+esc(fmtDayY(cotisDate(ME.uid))):""} ✔`:"pas encore enregistrée par le comité."}</p>`:""}
       ${qrSrc()?`<button class="btn sm" data-qr>${ico("qr")} QR code pour payer mon adhésion</button>`:""}</div>
-    <div class="row between"><h2 class="h">Mes chiens</h2><button class="btn sm" id="addDog">${ico("plus")} Ajouter un chien</button></div>
-    ${(ME.chiens||[]).length?`<div class="dogs edit">${ME.chiens.map((c,i)=>`<button class="card dog" data-dog="${i}">${avatar(c.nom,c.photo,"lg")}<div class="grow"><b>${esc(c.nom)}</b>
-      <div class="small">${[SEXES[c.sexe],c.race,c.naissance?ageFrom(c.naissance):""].filter(Boolean).map(esc).join(" · ")}</div>${c.remarque?`<p class="small">${esc(c.remarque)}</p>`:""}${vaccinHTML(c,ME.uid)}</div>${ico("edit")}</button>`).join("")}</div>`
-      :`<p class="muted">Présente ton compagnon : nom, sexe, âge, photo…</p>`}
+    <div class="row between wrap"><h2 class="h">Mes chiens</h2><span class="row wrap"><button class="btn sm" id="addDog">${ico("plus")} Ajouter un chien</button>${isMember()?`<button class="btn sm ghost" id="linkDog">${ico("paw")} Chien déjà inscrit</button>`:""}</span></div>
+    ${chiensDe(ME).length?`<div class="dogs edit">${chiensDe(ME).map(monChienHTML).join("")}</div>`
+      :`<p class="muted">Présente ton compagnon : nom, sexe, âge, photo… Si ton chien a déjà été inscrit par un autre de ses maîtres (conjoint·e, famille), choisis « Chien déjà inscrit » pour partager sa fiche.</p>`}
     <h2 class="h">Rappels avant les cours</h2>
     <div class="card">
       ${perm==="unsupported"?`<p class="small">Ce navigateur ne gère pas les notifications.${isIOS()?" Sur iPhone, installe d’abord l’app sur l’écran d’accueil (bouton Partager › Sur l’écran d’accueil).":""}</p>`
@@ -189,9 +205,30 @@ VIEWS.compte={t:"Mon compte",r(){
     {k:"bcv",l:"Adhérent·e Boxer Club Vaud",t:"check"},{k:"bcs",l:"Adhérent·e Boxer Club Suisse",t:"check"}],{...ME,tel:priveDe(ME.uid).tel||"",nom:ME.pseudo},{save:v=>updateProfile(v)}));
   bindQR(m);
   const saveDogs=l=>updateProfile({pseudo:ME.pseudo,prenom:ME.prenom,photo:ME.photo,chiens:l});
-  b("addDog",()=>editSheet("Nouveau chien",DOG_FIELDS,{sexe:"M"},{save:v=>saveDogs([...(ME.chiens||[]),v])}));
+  // Choisir un chien déjà inscrit par un autre maître (i : remplace le chien « à relier » à cette place).
+  const relier=(i,nom)=>choisirChien("Chien déjà inscrit",{nom,intro:"Choisis ton chien dans la liste des chiens du club. Sa fiche sera partagée : elle affichera tous ses maîtres.",
+    exclure:d=>d.t.id===ME.uid||d.maitres.some(u=>u.id===ME.uid),onPick:async d=>{await relierChien(d.t.id,d.c,i);closeSheet();toast(d.c.nom+" est maintenant aussi ton chien 🐾")}});
+  b("addDog",()=>editSheet("Nouveau chien",DOG_FIELDS,{sexe:"M"},{save:v=>saveDogs([...(ME.chiens||[]),{...v,id:chienId()}])}));
+  b("linkDog",()=>relier());
+  $$("[data-relier]",m).forEach(x=>x.onclick=async()=>{const i=+x.dataset.relier,d=ME.chiens[i];
+    const k=x.dataset.cle&&chienParCle(x.dataset.cle);
+    if(k){try{await relierChien(k.t.id,k.c,i);toast(k.c.nom+" est maintenant aussi ton chien 🐾")}catch(e){toast(e.message,"bad")}return}
+    relier(i,d.nom)});
+  $$("[data-propre]",m).forEach(x=>x.onclick=()=>{const i=+x.dataset.propre,d=ME.chiens[i];
+    editSheet("Fiche de "+d.nom,DOG_FIELDS,{nom:d.nom,sexe:"M"},{save:v=>{const l=[...ME.chiens];l[i]={...v,id:chienId()};return saveDogs(l)}})});
   $$("[data-dog]",m).forEach(x=>x.onclick=()=>{const i=+x.dataset.dog;const d=ME.chiens[i];
-    editSheet("Modifier "+d.nom,DOG_FIELDS,{...d,id:"x"},{save:v=>{const l=[...ME.chiens];l[i]=v;return saveDogs(l)},remove:()=>saveDogs(ME.chiens.filter((_,j)=>j!==i))})});
+    const sans=()=>saveDogs(ME.chiens.filter((_,j)=>j!==i));
+    if(estLien(d)){const f=ficheLiee(d);
+      if(!f){sans();toast("Chien retiré de ton profil");return}
+      const s=sheet(f.c.nom,`${dogsHTML([{c:f.c,t:f.t,lien:true}],ME.uid)}
+        <p class="small">La fiche de ${esc(f.c.nom)} est tenue par <b>${esc(f.t.pseudo)}</b> : c’est lui ou elle qui la modifie (photo, vaccins, carnet…). Tu peux lui écrire pour une correction.</p>
+        <div class="row wrap end"><a class="btn" href="#boite/m/${esc(f.t.id)}">${ico("mail")} Écrire à ${esc(f.t.pseudo)}</a><button class="btn danger ghost" id="unlink">Ne plus être relié·e à ${esc(f.c.nom)}</button></div>`);
+      bindFichiers(s);
+      $("#unlink",s).onclick=async()=>{if(await confirmBox(`Retirer ${f.c.nom} de ton profil ? Sa fiche reste chez ${f.t.pseudo}.`,"Retirer")){closeSheet();await sans()}};
+      return}
+    const autres=maitresDe(ME.uid,d).filter(u=>u.id!==ME.uid);
+    editSheet("Modifier "+d.nom,DOG_FIELDS,{...d,id:"x"},{save:v=>{const l=[...ME.chiens];l[i]={...v,id:d.id||chienId()};return saveDogs(l)},
+      remove:async()=>{if(autres.length&&!(await confirmBox(`${d.nom} est aussi le chien de ${autres.map(u=>u.pseudo).join(", ")}. Sa fiche disparaîtra aussi de leur profil.`,"Supprimer quand même")))return;closeSheet();await sans()}})});
   b("askN",async()=>{await askNotif();render()});
   const on=$("#rOn",m);if(on)on.onchange=()=>ls(RAPPEL_KEY+"-on",on.checked?"1":"0");
   $("#rDel",m).onchange=e=>{ls(RAPPEL_KEY,e.target.value);toast("Rappel enregistré")};
@@ -209,14 +246,18 @@ function regFields(full=true){
       <label class="chk"><input type="checkbox" id="rBcv"> Adhérent·e Boxer Club Vaud</label>
       <label class="chk"><input type="checkbox" id="rBcs"> Adhérent·e Boxer Club Suisse</label></fieldset>
     <fieldset class="dogset"><legend>🐾 Ton chien (facultatif)</legend>
+      <label class="chk"><input type="checkbox" id="dDeja"> Mon chien est déjà inscrit au club par un autre de ses maîtres (conjoint·e, famille…)</label>
       <div class="f half"><label for="dNom">Nom</label><input id="dNom"></div>
+      <div class="f half deja-only" hidden><label for="dAutre">Pseudo ou prénom de l’autre maître</label><input id="dAutre" placeholder="facultatif"></div>
+      <div class="deja-only" hidden><small>Pas besoin de refaire sa fiche : dès que le comité aura validé ton compte, tu le choisiras dans la liste des chiens du club, et sa fiche affichera ses deux maîtres.</small></div>
+      <div class="nouveau-chien">
       <div class="f half"><label for="dSexe">Sexe</label><select id="dSexe"><option value="M">Mâle</option><option value="F">Femelle</option></select></div>
       <div class="f half"><label for="dNaiss">Date de naissance</label><input id="dNaiss" type="date"></div>
       <div class="f half"><label for="dRace">Race</label><input id="dRace" value="Boxer"></div>
       <div class="f"><label>Photo</label><div class="photo-in"><span class="av lg" id="dPrev">🐾</span><label class="btn sm">Choisir une photo<input type="file" accept="image/*" hidden id="dPhoto"></label></div></div>
       <div class="f"><label for="dRem">Commentaire</label><textarea id="dRem" rows="2" placeholder="Castré, stérilisée, caractère…"></textarea></div>
       <label class="chk"><input type="checkbox" id="dVacc"> Vacciné·e (vaccins à jour)</label>
-      <small>Tu pourras ajouter d’autres chiens et joindre le carnet de vaccination ensuite dans ton profil.</small></fieldset>
+      <small>Tu pourras ajouter d’autres chiens et joindre le carnet de vaccination ensuite dans ton profil.</small></div></fieldset>
     <p id="rErr" class="err" hidden></p>
     <button class="btn primary block">Créer mon compte</button>
     <p class="small muted">Le comité valide ensuite ton compte pour ouvrir le tchat et les inscriptions aux cours.</p></form>`;
@@ -248,11 +289,13 @@ function bindAuth(m){
   }
   const rf=$("#regForm",m);if(!rf)return;
   let photo="";
+  const dj=$("#dDeja",m);dj.onchange=()=>{$$(".deja-only",m).forEach(x=>x.hidden=!dj.checked);$(".nouveau-chien",m).hidden=dj.checked};
   $("#dPhoto",m).onchange=async e=>{const f=e.target.files[0];if(!f)return;photo=await shrinkImage(f);$("#dPrev",m).outerHTML=`<img class="av lg" id="dPrev" alt="" src="${photo}">`};
   rf.onsubmit=async e=>{e.preventDefault();const err=$("#rErr",m);err.hidden=true;const btn=$("button.primary",rf);btn.disabled=true;
     const v=id=>{const x=$("#"+id,m);return x?x.value.trim():""};
     const ck=id=>{const x=$("#"+id,m);return!!(x&&x.checked)};const extra={tel:v("rTel"),bcv:ck("rBcv"),bcs:ck("rBcs")};
-    const chiens=v("dNom")?[{nom:v("dNom"),sexe:v("dSexe"),naissance:v("dNaiss"),race:v("dRace"),remarque:v("dRem"),vaccin:ck("dVacc"),photo}]:[];
+    const chiens=!v("dNom")?[]:ck("dDeja")?[{nom:v("dNom"),aRelier:true,autre:v("dAutre")}]
+      :[{id:chienId(),nom:v("dNom"),sexe:v("dSexe"),naissance:v("dNaiss"),race:v("dRace"),remarque:v("dRem"),vaccin:ck("dVacc"),photo}];
     try{
       if(ME&&ME._noProfile){if(!PSEUDO_RE.test(v("rPseudo")))throw new Error("Pseudo invalide : 3 à 20 caractères.");if(await DB.doc("pseudos/"+pseudoKey(v("rPseudo"))).get().then(s=>s.exists))throw new Error("Ce pseudo est déjà pris.");await finishProfile(AUTH.currentUser,{pseudo:v("rPseudo"),prenom:v("rPrenom"),chiens,...extra})}
       else await register({pseudo:v("rPseudo"),email:v("rMail"),pass:$("#rPass",m).value,prenom:v("rPrenom"),chiens,...extra});
@@ -267,7 +310,8 @@ VIEWS.reglages={t:"Réglages",r(){
   const wait=users.filter(u=>u.role==="attente");
   const empty=["comite","moniteurs","urgences","elevages","wiki"].filter(c=>!S[c].size);
   return`${isAdhEdit()?`<h2 class="h">Comptes à valider${wait.length?` <em class="pill">${wait.length}</em>`:""}</h2>
-    ${wait.length?`<div class="list">${wait.map(u=>`<div class="card row wrap">${avatar(u.pseudo,u.photo)}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?" · "+esc(u.prenom):""}<br><span class="small">${u.chien?"🐾 "+esc(u.chien)+" · ":""}inscrit·e ${esc(fmtAgo(u.at||u.createdAt||new Date().toISOString()))}</span></span>
+    ${wait.length?`<div class="list">${wait.map(u=>`<div class="card row wrap">${avatar(u.pseudo,u.photo)}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?" · "+esc(u.prenom):""}<br><span class="small">${u.chien?"🐾 "+esc(u.chien)+" · ":""}inscrit·e ${esc(fmtAgo(u.at||u.createdAt||new Date().toISOString()))}</span>
+      ${chiensDe(u).filter(d=>d.aRelier).map(d=>`<br><span class="small">🐾 ${esc(d.c.nom)} : déjà inscrit par ${d.c.autre?esc(d.c.autre):"un autre maître"}. <button class="lnk" data-relierpour="${esc(u.id)}" data-i="${d.i}">Relier à sa fiche</button></span>`).join("")}</span>
       <button class="btn sm primary" data-ok="${esc(u.id)}" data-r="adherent">Valider (adhérent·e)</button><button class="btn sm ghost" data-see="${esc(u.id)}">Fiche</button><button class="btn sm danger ghost" data-no="${esc(u.id)}">Refuser</button></div>`).join("")}</div>`:`<p class="muted">Aucun compte en attente.</p>`}
     <h2 class="h">Tous les comptes (${users.length})</h2>
     <div class="list">${users.filter(u=>u.role!=="attente").map(u=>`<div class="card row wrap">${avatar(u.pseudo,u.photo,"sm")}<span class="grow"><b>${esc(u.pseudo)}</b>${u.prenom?" · "+esc(u.prenom):""}</span>
@@ -292,6 +336,10 @@ VIEWS.reglages={t:"Réglages",r(){
 },bind(m){
   $$("[data-ok]",m).forEach(b=>b.onclick=()=>{setRole(b.dataset.ok,b.dataset.r);toast("Compte validé")});
   $$("[data-see]",m).forEach(b=>b.onclick=()=>userSheet(get("users",b.dataset.see)));
+  // Le comité relie le chien d'un nouveau compte à la fiche déjà inscrite par l'autre maître.
+  $$("[data-relierpour]",m).forEach(b=>b.onclick=()=>{const u=get("users",b.dataset.relierpour),i=+b.dataset.i,d=(u.chiens||[])[i];if(!d)return;
+    choisirChien("Relier "+d.nom+" ("+u.pseudo+")",{nom:d.nom,intro:`Choisis la fiche de ${esc(d.nom)} déjà inscrite${d.autre?" par "+esc(d.autre):""}. ${esc(u.pseudo)} deviendra aussi son maître.`,
+      exclure:x=>x.t.id===u.id,onPick:async x=>{await relierChien(x.t.id,x.c,i,u.id);closeSheet();toast(d.nom+" relié à la fiche de "+x.t.pseudo)}})});
   $$("[data-no]",m).forEach(b=>b.onclick=async()=>{const u=get("users",b.dataset.no);if(await confirmBox(`Retirer le compte de ${u.pseudo} ?`,"Retirer"))removeUser(u)});
   bindRoleSelects(m);
   $("#cfgForm",m).onsubmit=e=>{e.preventDefault();putCfg({annonce:$("#cAnn",m).value.trim(),accueil:$("#cAcc",m).value.trim(),premiereVisite:$("#cPv",m).value.trim(),telClub:$("#cTel",m).value.trim(),cotisation:Number($("#cCot",m).value)||montantCotis(),acces:$("#cAx",m).value.trim(),detresse:$("#cDet",m).value.trim()});toast("Textes enregistrés")};

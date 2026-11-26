@@ -73,7 +73,7 @@ function bindInstall(root){
 window.addEventListener("appinstalled",()=>{ls("bcv-install-ok","1");render()});
 
 /* ---------- Affichage ---------- */
-function render(){planNotifs();
+function render(){planNotifs();soignerChiens();
   if(MODE==="loading")return;
   const v=VIEWS[ROUTE];
   document.title=(ROUTE==="accueil"?"":v.t+" – ")+"Boxer Club Vaud";

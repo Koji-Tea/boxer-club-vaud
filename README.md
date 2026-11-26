@@ -7,7 +7,7 @@ C’est une application web installable (PWA) : on l’ouvre dans le navigateur,
 | --- | --- | --- |
 | Accueil | Présentation, annonce du comité, prochains rendez-vous | Tout le monde |
 | Agenda des cours | Cours et événements, inscription, rappel avant le cours, ajout à son agenda | Tout le monde ; inscription pour les membres |
-| Comité & adhérents | Le comité et ses rôles ; la liste des adhérent·es et leurs chiens, bouton pour télécharger le QR code de paiement de l’adhésion | Comité : tout le monde. Adhérents : membres. E-mails, téléphones et cotisations : comité |
+| Comité & adhérents | Le comité et ses rôles ; la liste des adhérent·es et leurs chiens (un chien partagé a une seule fiche avec tous ses maîtres ; le comité fusionne les doublons), bouton pour télécharger le QR code de paiement de l’adhésion | Comité : tout le monde. Adhérents : membres. E-mails, téléphones et cotisations : comité |
 | Tchat | Fil général et groupes de discussion (créés par le comité, rejoints librement) | Membres validés |
 | Moniteurs | Fiche de chaque moniteur·rice : photo, présentation, spécialités, brevets, ses prochains cours | Tout le monde |
 | Chiots & portées | Annonces de naissances par élevage : nombre de chiots, mâles/femelles, disponibles ou réservés, contact de l’élevage | Tout le monde |
@@ -19,7 +19,7 @@ C’est une application web installable (PWA) : on l’ouvre dans le navigateur,
 | Plan d’accès | Adresse, carte, itinéraire Google Maps / Apple Plans / transports publics | Tout le monde |
 | Soutenir | Twint, devenir membre (QR code d’adhésion), vêtements du club, Boxer en détresse, bénévolat, réseaux | Tout le monde |
 | Réglages | Valider les nouveaux comptes, donner les rôles, QR code d’adhésion, montant de la cotisation, textes de l’app | Comité |
-| Mon compte | Pseudo, photo, téléphone, adhésion BCV / BCS, cotisation, fiches de ses chiens, rappels | La personne |
+| Mon compte | Pseudo, photo, téléphone, adhésion BCV / BCS, cotisation, fiches de ses chiens (ou se relier à un chien déjà inscrit par un autre maître), rappels | La personne |
 | Messages (enveloppe en haut) | Messages privés entre membres et notifications de l’app (note de frais à payer, payée…) | Membres validés |
 
 ## Comptes et rôles
@@ -118,5 +118,6 @@ tools/                préparation du logo et des icônes, test complet avec les
 python3 -m http.server 8765 &
 npx firebase emulators:exec --project demo-bcv --only firestore,auth "node tools/test-e2e.js"
 npx firebase emulators:exec --project demo-bcv --only firestore,auth "node tools/test-vocal.js"   # messages vocaux et coches (micro simulé)
+npx firebase emulators:exec --project demo-bcv --only firestore,auth "node tools/test-chiens.js"  # chiens partagés entre plusieurs maîtres, fusion des doublons
 ```
 Le test crée des comptes, vérifie le premier administrateur, la validation, le tchat, les inscriptions, les portées et que chaque rôle est bien limité.

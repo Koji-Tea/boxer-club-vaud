@@ -326,6 +326,99 @@ async function initStore(){
    Chaque compte peut décrire ses chiens : {nom, sexe (M/F), naissance, race, photo, remarque (castré, stérilisée…)}. */
 const nomsChiens=l=>(l||[]).map(c=>c.nom).filter(Boolean).join(", ");
 const SEXES={M:"Mâle",F:"Femelle"};
+/* ---------- Chiens partagés entre plusieurs maîtres ----------
+   La fiche d'un chien est tenue par un·e « titulaire » (dans son profil, avec un id stable).
+   Les autres maîtres ont seulement un lien dans leur profil : {lien: uid du/de la titulaire, id, nom}.
+   Un chien noté « déjà inscrit par un autre maître » à la création du compte attend d'être relié : {nom, aRelier:true, autre: pseudo}. */
+const chienId=()=>"c"+uid();
+const estLien=c=>!!(c&&c.lien);
+const estFiche=c=>!!(c&&c.nom&&!c.lien&&!c.aRelier);
+const usersDe=uid=>uid===(ME&&ME.uid)?{...(get("users",uid)||{}),...ME,id:uid}:get("users",uid);
+// La fiche visée par un lien, avec son ou sa titulaire ; null si elle n'existe plus.
+function ficheLiee(l){
+  const t=usersDe(l.lien);if(!t)return null;
+  const c=(t.chiens||[]).find(x=>estFiche(x)&&(l.id&&x.id?x.id===l.id:norm(x.nom)===norm(l.nom)));
+  return c?{c,t}:null;
+}
+const cleChien=(tid,c)=>tid+"/"+(c.id||norm(c.nom));
+const memeFiche=(a,tid,c)=>a&&a.t.id===tid&&(a.c===c||(c.id&&a.c.id===c.id)||(!c.id&&norm(a.c.nom)===norm(c.nom)));
+// Tous les maîtres d'un chien (titulaire en premier).
+function maitresDe(tid,c){
+  const t=usersDe(tid);
+  const autres=all("users").filter(u=>u.id!==tid&&(usersDe(u.id).chiens||[]).some(l=>estLien(l)&&memeFiche(ficheLiee(l),tid,c)));
+  return[t,...autres].filter(Boolean);
+}
+// Les chiens du club, un seul par fiche, avec tous leurs maîtres.
+function chiensDuClub(){
+  const us=all("users").filter(u=>MEMBERS.includes(u.role)).map(u=>usersDe(u.id)),m=new Map(),key=cleChien;
+  us.forEach(u=>{const l=u.chiens||[];(l.length?l.filter(estFiche):u.chien?[{nom:u.chien}]:[]).forEach(c=>m.set(key(u.id,c),{c,t:u,maitres:[u]}))});
+  us.forEach(u=>(u.chiens||[]).filter(estLien).forEach(l=>{const f=ficheLiee(l),e=f&&m.get(key(f.t.id,f.c));if(e&&!e.maitres.some(x=>x.id===u.id))e.maitres.push(u)}));
+  return[...m.values()].sort((a,b)=>String(a.c.nom).localeCompare(b.c.nom,"fr"));
+}
+// Les chiens d'un compte, liens résolus : {c (données de la fiche), t (titulaire), i (place dans le profil), lien, aRelier, perdu}.
+function chiensDe(u){
+  if(!u.id)u={...u,id:u.uid}; // ME porte uid, les comptes de la liste portent id
+  return(u.chiens||[]).map((x,i)=>{
+    if(x.aRelier)return{c:x,t:u,i,aRelier:true};
+    if(!estLien(x))return{c:x,t:u,i};
+    const f=ficheLiee(x);return f?{c:f.c,t:f.t,i,lien:true}:{c:x,t:null,i,lien:true,perdu:true};
+  }).filter(d=>d.c&&d.c.nom);
+}
+// Écrit la liste des chiens d'un compte (le sien, ou celui d'un·e autre pour le comité).
+async function ecrireChiens(id,list){
+  const o={chiens:list,chien:nomsChiens(list)};
+  if(id===ME.uid)ME={...ME,...o};
+  if(MODE==="cloud"){try{await DB.doc("users/"+id).update(o)}catch(e){dbErr(e);throw e}}
+  else{const u=get("users",id);if(u)S.users.set(id,{...u,...o});saveLocal()}
+  changed();
+}
+// Se relier à un chien déjà inscrit (remplace éventuellement un chien « à relier » ou une fiche en double à la place i).
+// Le comité peut aussi relier le chien d'un·e autre (pour : son uid), par exemple à la validation d'un compte.
+async function relierChien(tid,c,i,pour=ME.uid){
+  if(tid===pour)throw new Error("C’est déjà son chien.");
+  const l=[...(usersDe(pour).chiens||[])];
+  if(l.some((x,j)=>j!==i&&estLien(x)&&memeFiche(ficheLiee(x),tid,c)))throw new Error(c.nom+" est déjà relié à ce compte.");
+  const lien={lien:tid,id:c.id||"",nom:c.nom};
+  if(i!=null&&l[i])l[i]=lien;else l.push(lien);
+  await ecrireChiens(pour,l);
+}
+// Comité : fusionne deux fiches du même chien. On garde « a », « b » devient un lien vers « a » ;
+// les infos qui manquent dans « a » sont reprises de « b », et les maîtres reliés à « b » passent sur « a ».
+async function fusionnerChiens(a,b){
+  if(a.t.id===b.t.id&&a.c===b.c)return;
+  const lu=id=>[...(usersDe(id).chiens||[])];
+  const idA=a.c.id||chienId();
+  const complet={...a.c,id:idA};
+  ["photo","sexe","naissance","race","remarque","vaccinDate"].forEach(k=>{if(!complet[k]&&b.c[k])complet[k]=b.c[k]});
+  if(complet.vaccin===undefined&&b.c.vaccin!==undefined)complet.vaccin=b.c.vaccin;
+  if(!(complet.carnet||[]).length&&(b.c.carnet||[]).length&&a.t.id===b.t.id)complet.carnet=b.c.carnet;
+  const lien={lien:a.t.id,id:idA,nom:complet.nom};
+  // Qui était relié à « b » ?
+  const relies=all("users").map(u=>usersDe(u.id)).filter(u=>(u.chiens||[]).some(l=>estLien(l)&&memeFiche(ficheLiee(l),b.t.id,b.c)));
+  const ecr=new Map();
+  const liste=id=>{if(!ecr.has(id))ecr.set(id,lu(id));return ecr.get(id)};
+  // 1. Fiche gardée, complétée.
+  const la=liste(a.t.id);const ia=la.findIndex(x=>x===a.c||(a.c.id&&x.id===a.c.id)||(!a.c.id&&estFiche(x)&&norm(x.nom)===norm(a.c.nom)));if(ia>=0)la[ia]=complet;
+  // 2. Le doublon devient un lien (ou disparaît si son ou sa titulaire est déjà maître de « a »).
+  const lb=liste(b.t.id);const ib=lb.findIndex(x=>x===b.c||(b.c.id&&x.id===b.c.id)||(!b.c.id&&estFiche(x)&&norm(x.nom)===norm(b.c.nom)));
+  if(ib>=0){if(b.t.id===a.t.id||lb.some(x=>estLien(x)&&x.lien===a.t.id&&(x.id===idA||norm(x.nom)===norm(a.c.nom))))lb.splice(ib,1);else lb[ib]=lien}
+  // 3. Les maîtres reliés au doublon passent sur la fiche gardée.
+  relies.forEach(u=>{const l=liste(u.id);const j=l.findIndex(x=>estLien(x)&&memeFiche(ficheLiee(x),b.t.id,b.c));if(j<0)return;
+    if(u.id===a.t.id||l.some((x,k)=>k!==j&&estLien(x)&&x.lien===a.t.id&&x.id===idA))l.splice(j,1);else l[j]=lien});
+  for(const[id,l] of ecr)await ecrireChiens(id,l);
+}
+// À l'ouverture : chaque chien reçoit un id stable, et les liens sont mis à jour (id, nom) pour survivre à un changement de nom.
+let soinChiens=false;
+function soignerChiens(){
+  if(soinChiens||!ME||!ME.uid||ME._noProfile||!isMember()||!S.users.size||!(ME.chiens||[]).length)return;
+  let chg=false;
+  const l=ME.chiens.map(x=>{
+    if(estFiche(x)&&!x.id){chg=true;return{...x,id:chienId()}}
+    if(estLien(x)){const f=ficheLiee(x);if(f&&((f.c.id&&x.id!==f.c.id)||x.nom!==f.c.nom)){chg=true;return{...x,id:f.c.id||x.id||"",nom:f.c.nom}}}
+    return x});
+  if(!chg)return;
+  soinChiens=true;ecrireChiens(ME.uid,l).catch(()=>{}).finally(()=>setTimeout(()=>soinChiens=false,3000));
+}
 const PSEUDO_RE=/^[A-Za-z0-9À-ÿ._-]{3,20}$/;
 const pseudoKey=p=>norm(p).replace(/[^a-z0-9._-]/g,"");
 async function register({pseudo,email,pass,prenom,chiens,tel,bcv,bcs}){
