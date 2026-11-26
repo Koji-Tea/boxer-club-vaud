@@ -227,7 +227,7 @@ VIEWS.compte={t:"Mon compte",r(){
       $("#unlink",s).onclick=async()=>{if(await confirmBox(`Retirer ${f.c.nom} de ton profil ? Sa fiche reste chez ${f.t.pseudo}.`,"Retirer")){closeSheet();await sans()}};
       return}
     const autres=maitresDe(ME.uid,d).filter(u=>u.id!==ME.uid);
-    editSheet("Modifier "+d.nom,DOG_FIELDS,{...d,id:"x"},{save:v=>{const l=[...ME.chiens];l[i]={...v,id:d.id||chienId()};return saveDogs(l)},
+    editSheet("Modifier "+d.nom,DOG_FIELDS,{...d,id:"x"},{save:v=>{const l=[...ME.chiens];l[i]={...v,id:d.id||chienId(),...(d.remplace?{remplace:d.remplace}:{})};return saveDogs(l)},
       remove:async()=>{if(autres.length&&!(await confirmBox(`${d.nom} est aussi le chien de ${autres.map(u=>u.pseudo).join(", ")}. Sa fiche disparaîtra aussi de leur profil.`,"Supprimer quand même")))return;closeSheet();await sans()}})});
   b("askN",async()=>{await askNotif();render()});
   const on=$("#rOn",m);if(on)on.onchange=()=>ls(RAPPEL_KEY+"-on",on.checked?"1":"0");

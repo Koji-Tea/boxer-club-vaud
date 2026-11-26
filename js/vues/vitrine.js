@@ -232,20 +232,21 @@ function doublonsChiens(l){
 }
 function chiensHTML(){
   const lock=membersOnly("Les chiens du club");if(lock)return lock;
-  const l=chiensDuClub(),adm=isAdhEdit();
+  const l=chiensDuClub();
   if(!l.length)return`<p class="muted">Aucun chien enregistré pour l’instant. Chacun·e ajoute ses chiens dans « Mon compte ».</p>`;
-  const dbl=adm?doublonsChiens(l):[];
+  // Le comité voit tous les doublons ; chacun·e voit ceux de ses propres chiens.
+  const dbl=doublonsChiens(l).filter(x=>x.some(peutFusionner));
   return`<p class="lead">Les chiens des adhérent·es du club. Tu connais le chien mais pas son maître ? Cherche-le ici.</p>
     ${dbl.length?`<div class="banner info">${ico("paw")}<div class="grow"><b>Doublons possibles</b><br><span class="small">Le même chien a peut-être été inscrit par chacun de ses maîtres. Fusionne les fiches pour n’en garder qu’une, avec tous les maîtres.</span>
-      ${dbl.map(x=>`<div class="row wrap dbl"><span class="grow small"><b>${esc(x[0].c.nom)}</b> : ${x.map(d=>esc(d.t.pseudo)).join(", ")}</span><button class="btn sm" data-fus="${esc(cleChien(x[0].t.id,x[0].c))}" data-avec="${esc(cleChien(x[1].t.id,x[1].c))}">Fusionner</button></div>`).join("")}</div></div>`:""}
+      ${dbl.map(x=>`<div class="row wrap dbl"><span class="grow small"><b>${esc(x[0].c.nom)}</b> : ${x.map(d=>esc(d.t.pseudo)).join(", ")}</span>${(([d,e])=>`<button class="btn sm" data-fus="${esc(cleChien(d.t.id,d.c))}" data-avec="${esc(cleChien(e.t.id,e.c))}">Fusionner</button>`)(peutFusionner(x[0])?[x[0],x[1]]:[x.find(peutFusionner),x[0]])}</div>`).join("")}</div></div>`:""}
     <div class="search">${ico("search")}<input id="chQ" type="search" placeholder="Nom du chien, race, maître…"></div>
     <p class="small muted"><span id="chNb">${l.length}</span> chien(s)</p>
-    <div class="chiens">${l.map(({c,t,maitres})=>`<div class="card chien-c" data-s="${esc([c.nom,c.race,SEXES[c.sexe],...maitres.flatMap(u=>[u.pseudo,u.prenom])].filter(Boolean).join(" "))}">
+    <div class="chiens">${l.map(d=>[d,d.c,d.t,d.maitres]).map(([d,c,t,maitres])=>`<div class="card chien-c" data-s="${esc([c.nom,c.race,SEXES[c.sexe],...maitres.flatMap(u=>[u.pseudo,u.prenom])].filter(Boolean).join(" "))}">
       <div class="chien-ph">${c.photo?`<img alt="${esc(c.nom)}" src="${esc(c.photo)}">`:`<span>${esc(String(c.nom).slice(0,1).toUpperCase())}</span>`}</div>
       <b class="chien-nom">${esc(c.nom)}</b>
       <span class="small">${infoChien(c)||"&nbsp;"}</span>
       <div class="chien-ms">${maitresHTML(maitres)}</div>
-      ${adm?`<button class="lnk small muted" data-fus="${esc(cleChien(t.id,c))}">Fusionner…</button>`:""}</div>`).join("")}</div>`;
+      ${peutFusionner(d)?`<button class="lnk small muted" data-fus="${esc(cleChien(t.id,c))}">Fusionner…</button>`:""}</div>`).join("")}</div>`;
 }
 const chienParCle=k=>chiensDuClub().find(d=>cleChien(d.t.id,d.c)===k);
 // Liste des chiens du club pour en choisir un (se relier à un chien, fusionner deux fiches).
@@ -268,13 +269,13 @@ function fusionChiens(a,b){
   const s=sheet("Fusionner "+a.c.nom,`<p class="small">Il ne restera qu’une fiche, avec tous les maîtres (${[...new Set([...a.maitres,...b.maitres].map(u=>u.pseudo))].map(esc).join(", ")}). Les infos qui manquent dans la fiche gardée (photo, date de naissance…) sont reprises de l’autre.</p>
     <div class="list">${opt(a,0)}${opt(b,1)}</div>`);
   $$("[data-keep]",s).forEach(x=>x.onclick=async()=>{const[k,o]=x.dataset.keep==="0"?[a,b]:[b,a];$$("[data-keep]",s).forEach(y=>y.disabled=true);
-    try{await fusionnerChiens(k,o);closeSheet();toast("Fiches fusionnées 🐾")}catch(e){$$("[data-keep]",s).forEach(y=>y.disabled=false)}});
+    try{await fusionnerChiens(k,o);closeSheet();toast("Fiches fusionnées 🐾")}catch(e){if(e&&e.message&&!e.code)toast(e.message,"bad");$$("[data-keep]",s).forEach(y=>y.disabled=false)}});
 }
 function bindChiens(m){
   $$("[data-fus]",m).forEach(b=>b.onclick=()=>{const a=chienParCle(b.dataset.fus);if(!a)return;
     const avec=b.dataset.avec&&chienParCle(b.dataset.avec);if(avec){fusionChiens(a,avec);return}
     choisirChien("Fusionner "+a.c.nom+" avec…",{nom:a.c.nom,intro:`Choisis l’autre fiche du même chien (celle-ci est tenue par ${esc(a.t.pseudo)}).`,
-      exclure:d=>cleChien(d.t.id,d.c)===cleChien(a.t.id,a.c),onPick:d=>fusionChiens(a,d)})});
+      exclure:d=>cleChien(d.t.id,d.c)===cleChien(a.t.id,a.c)||(!peutFusionner(a)&&!peutFusionner(d)),onPick:d=>fusionChiens(a,d)})});
 }
 function userSheet(u){
   if(!u)return;

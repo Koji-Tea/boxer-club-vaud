@@ -7,7 +7,7 @@ C’est une application web installable (PWA) : on l’ouvre dans le navigateur,
 | --- | --- | --- |
 | Accueil | Présentation, annonce du comité, prochains rendez-vous | Tout le monde |
 | Agenda des cours | Cours et événements, inscription, rappel avant le cours, ajout à son agenda | Tout le monde ; inscription pour les membres |
-| Comité & adhérents | Le comité et ses rôles ; la liste des adhérent·es et leurs chiens (un chien partagé a une seule fiche avec tous ses maîtres ; le comité fusionne les doublons), bouton pour télécharger le QR code de paiement de l’adhésion | Comité : tout le monde. Adhérents : membres. E-mails, téléphones et cotisations : comité |
+| Comité & adhérents | Le comité et ses rôles ; la liste des adhérent·es et leurs chiens (un chien partagé a une seule fiche avec tous ses maîtres ; chaque maître, ou le comité, fusionne les doublons), bouton pour télécharger le QR code de paiement de l’adhésion | Comité : tout le monde. Adhérents : membres. E-mails, téléphones et cotisations : comité |
 | Tchat | Fil général et groupes de discussion (créés par le comité, rejoints librement) | Membres validés |
 | Moniteurs | Fiche de chaque moniteur·rice : photo, présentation, spécialités, brevets, ses prochains cours | Tout le monde |
 | Chiots & portées | Annonces de naissances par élevage : nombre de chiots, mâles/femelles, disponibles ou réservés, contact de l’élevage | Tout le monde |
