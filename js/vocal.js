@@ -62,11 +62,21 @@ function lecteur(){
   AUD.addEventListener("error",()=>{if(!AUD_X||AUD.src===silence())return;AUD_X=null;majVocal();toast("Ce message vocal ne peut pas être lu sur cet appareil.","bad")});
   return AUD;
 }
+// Vitesse de lecture (comme WhatsApp) : 1×, 1,5×, 2×. Retenue sur cet appareil pour tous les messages vocaux.
+const VITESSES=[1,1.5,2];
+let VITESSE=(()=>{const v=parseFloat(ls("bcv-vocal-vitesse"));return VITESSES.includes(v)?v:1})();
+const fmtVit=v=>String(v).replace(".",",")+"×";
+function appliquerVitesse(){if(!AUD)return;AUD.defaultPlaybackRate=VITESSE;AUD.playbackRate=VITESSE;if("preservesPitch" in AUD)AUD.preservesPitch=true}
+function changerVitesse(){
+  VITESSE=VITESSES[(VITESSES.indexOf(VITESSE)+1)%VITESSES.length];ls("bcv-vocal-vitesse",String(VITESSE));
+  appliquerVitesse();$$(".vspeed").forEach(b=>{b.textContent=fmtVit(VITESSE);b.setAttribute("aria-label","Vitesse de lecture : "+fmtVit(VITESSE))});
+}
 const durDe=x=>(x&&x.audio&&x.audio.dur)||0;
 function vocalHTML(x){
   const d=durDe(x);
   return`<div class="vocal" data-aud="${esc(x.id)}"><button type="button" class="vplay" data-play="${esc(x.id)}" aria-label="Écouter le message vocal">${ico("play","p")}${ico("pause","s")}</button>
-    <button type="button" class="vbar" data-seek="${esc(x.id)}" aria-label="Position de lecture"><i></i></button><span class="vdur">${fmtDur(d)}</span></div>`;
+    <button type="button" class="vbar" data-seek="${esc(x.id)}" aria-label="Position de lecture"><i></i></button><span class="vdur">${fmtDur(d)}</span>
+    <button type="button" class="vspeed" data-speed aria-label="Vitesse de lecture : ${fmtVit(VITESSE)}" title="Vitesse de lecture">${fmtVit(VITESSE)}</button></div>`;
 }
 // Met à jour le bouton, la barre de progression et le temps des messages vocaux affichés.
 const DURS=new Map();
@@ -87,6 +97,7 @@ async function jouerVocal(x,ratio){
   let url;try{url=await chargerVocal(x)}catch(e){if(AUD_X===x){AUD_X=null;AUD_WAIT=null;majVocal()}toast(MODE==="cloud"?"Message vocal introuvable (supprimé ou pas encore envoyé).":"En mode essai, un message vocal ne reste que jusqu’au rechargement de la page.","bad");return}
   if(AUD_X!==x)return;
   if(a.src!==url){a.src=url;a.load()}
+  appliquerVitesse();
   const go=()=>{if(ratio!=null&&durDe(x))try{a.currentTime=ratio*durDe(x)}catch(e){}};
   if(a.readyState>=1)go();else a.addEventListener("loadedmetadata",go,{once:true});
   try{await a.play()}catch(e){if(AUD_X===x){toast("Touche encore ▶ pour écouter.");a.pause()}}
@@ -96,6 +107,7 @@ async function jouerVocal(x,ratio){
 function bindVocaux(box,byId){
   $$("[data-aud]",box).forEach(el=>{const x=byId(el.dataset.aud);if(x)DURS.set(x.id,durDe(x))});
   $$("[data-play]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();const x=byId(b.dataset.play);if(x)jouerVocal(x)});
+  $$("[data-speed]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();changerVitesse()});
   $$("[data-seek]",box).forEach(b=>b.onclick=e=>{e.stopPropagation();const x=byId(b.dataset.seek);if(!x)return;
     const r=b.getBoundingClientRect(),ratio=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));jouerVocal(x,ratio)});
   majVocal();

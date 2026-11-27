@@ -55,7 +55,7 @@ Les droits sont vérifiés par la base elle-même (`firestore.rules`), pas seule
 
 ## Messages vocaux et accusés de lecture
 
-- **Messages vocaux** (tchat, groupes, messages privés) : quand le champ est vide, le bouton Envoyer devient un micro. Maintenir pour enregistrer, relâcher pour envoyer, glisser vers la gauche pour annuler. Un appui court verrouille l’enregistrement (Supprimer / Envoyer). 3 minutes au plus. On écoute directement dans la bulle (barre de progression, toucher la barre pour avancer).
+- **Messages vocaux** (tchat, groupes, messages privés) : quand le champ est vide, le bouton Envoyer devient un micro. Maintenir pour enregistrer, relâcher pour envoyer, glisser vers la gauche pour annuler. Un appui court verrouille l’enregistrement (Supprimer / Envoyer). 3 minutes au plus. On écoute directement dans la bulle (barre de progression, toucher la barre pour avancer, bouton de vitesse 1× / 1,5× / 2× retenu sur le téléphone).
 - Sans Firebase Storage (offre gratuite), le son est rangé dans Firestore à côté des messages (morceaux de moins de 1 Mo), et téléchargé seulement quand on l’écoute. Supprimer le message supprime aussi le son.
 - **Coches** sous ses propres messages : horloge = envoi en cours, ✓✓ grises = envoyé, ✓✓ bleues = vu. Dans le tchat général et les groupes, le chiffre donne combien de personnes l’ont vu ; le toucher affiche leurs noms.
 
