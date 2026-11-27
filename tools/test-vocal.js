@@ -42,6 +42,13 @@ let fails=0;const ok=(c,m)=>{console.log((c?'OK  ':'FAIL')+' '+m);if(!c)fails++}
   ok(st.on&&st.t>0.3&&st.src==='blob:','lecture du vocal chez Bob ('+JSON.stringify(st)+')');
   await B.waitForTimeout(400);
   const w=await B.evaluate(()=>document.querySelector('.vocal.on .vbar i').style.width);ok(parseFloat(w)>5,'barre de progression qui avance ('+w+')');
+  // Vitesse de lecture : 1× → 1,5× → 2× → 1×, retenue sur l'appareil
+  await B.click('#chatList [data-speed]');await B.waitForTimeout(200);
+  ok(await B.evaluate(()=>AUD.playbackRate===1.5&&document.querySelector('.vspeed').textContent==='1,5×'),'vitesse 1,5× appliquée');
+  await B.click('#chatList [data-speed]');await B.waitForTimeout(200);
+  ok(await B.evaluate(()=>AUD.playbackRate===2&&localStorage.getItem('bcv-vocal-vitesse')==='2'),'vitesse 2× appliquée et retenue');
+  await B.click('#chatList [data-speed]');await B.waitForTimeout(200);
+  ok(await B.evaluate(()=>AUD.playbackRate===1),'retour à 1×');
   await A.waitForTimeout(1500);
   ok(await A.evaluate(()=>!!document.querySelector('#chatList .msg.me .tick.lu')),'coches bleues quand Bob a vu');
   await A.click('#chatList [data-vus]');await A.waitForTimeout(400);ok((await A.textContent('.sheet')).includes('Bob'),'« Vu par » liste Bob');await A.evaluate(()=>closeSheet());
